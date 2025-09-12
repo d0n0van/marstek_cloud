@@ -36,24 +36,35 @@ async def async_setup_entry(hass, entry, async_add_entities):
     """Set up Marstek sensors from a config entry."""
     coordinator = hass.data[DOMAIN][entry.entry_id]
     entities = []
+    existing_entities = hass.states.async_entity_ids()  # Get existing entity IDs
 
     for device in coordinator.data:
         # Add main battery data sensors
         for key, meta in SENSOR_TYPES.items():
-            entities.append(MarstekSensor(coordinator, device, key, meta))
+            unique_id = f"{device['devid']}_{key}"
+            if unique_id not in existing_entities:  # Check if entity already exists
+                entities.append(MarstekSensor(coordinator, device, key, meta))
 
         # Add diagnostic sensors
         for key, meta in DIAGNOSTIC_SENSORS.items():
-            entities.append(MarstekDiagnosticSensor(coordinator, device, key, meta))
+            unique_id = f"{device['devid']}_{key}"
+            if unique_id not in existing_entities:  # Check if entity already exists
+                entities.append(MarstekDiagnosticSensor(coordinator, device, key, meta))
 
         # Add total charge per device sensor
-        entities.append(MarstekDeviceTotalChargeSensor(coordinator, device, "total_charge", {"name": "Total Charge", "unit": UnitOfEnergy.KILO_WATT_HOUR}))
+        unique_id = f"{device['devid']}_total_charge"
+        if unique_id not in existing_entities:  # Check if entity already exists
+            entities.append(MarstekDeviceTotalChargeSensor(coordinator, device, "total_charge", {"name": "Total Charge", "unit": UnitOfEnergy.KILO_WATT_HOUR}))
 
     # Add total charge across all devices sensor
-    entities.append(MarstekTotalChargeSensor(coordinator))
+    unique_id = f"total_charge_all_devices_{entry.entry_id}"
+    if unique_id not in existing_entities:  # Check if entity already exists
+        entities.append(MarstekTotalChargeSensor(coordinator, entry.entry_id))
 
     # Add total power across all devices sensor
-    entities.append(MarstekTotalPowerSensor(coordinator))
+    unique_id = f"total_power_all_devices_{entry.entry_id}"
+    if unique_id not in existing_entities:  # Check if entity already exists
+        entities.append(MarstekTotalPowerSensor(coordinator, entry.entry_id))
 
     async_add_entities(entities)
 
@@ -122,10 +133,12 @@ class MarstekDiagnosticSensor(MarstekBaseSensor):
 class MarstekTotalChargeSensor(SensorEntity):
     """Sensor to calculate the total charge across all devices."""
 
-    def __init__(self, coordinator):
+    def __init__(self, coordinator, entry_id):
         self.coordinator = coordinator
         self._attr_name = "Total Charge Across Devices"
-        self._attr_unique_id = f"total_charge_all_devices_{id(self.coordinator)}"  # Ensure unique ID for total charge sensor
+        # Use entry_id for a stable unique ID
+        self._attr_unique_id = f"total_charge_all_devices_{entry_id}"
+        _LOGGER.debug(f"Total Charge Sensor unique_id: {self._attr_unique_id}")  # Log the unique ID
         self._attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
 
     @property
@@ -148,10 +161,12 @@ class MarstekTotalChargeSensor(SensorEntity):
 class MarstekTotalPowerSensor(SensorEntity):
     """Sensor to calculate the total charge and discharge power across all devices."""
 
-    def __init__(self, coordinator):
+    def __init__(self, coordinator, entry_id):
         self.coordinator = coordinator
         self._attr_name = "Total Power Across Devices"
-        self._attr_unique_id = f"total_power_all_devices_{id(self.coordinator)}"  # Ensure unique ID for total power sensor
+        # Use entry_id for a stable unique ID
+        self._attr_unique_id = f"total_power_all_devices_{entry_id}"
+        _LOGGER.debug(f"Total Power Sensor unique_id: {self._attr_unique_id}")  # Log the unique ID
         self._attr_native_unit_of_measurement = UnitOfPower.WATT
 
     @property
