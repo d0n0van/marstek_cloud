@@ -138,7 +138,6 @@ class MarstekTotalChargeSensor(SensorEntity):
         self._attr_name = "Total Charge Across Devices"
         # Use entry_id for a stable unique ID
         self._attr_unique_id = f"total_charge_all_devices_{entry_id}"
-        _LOGGER.debug(f"Total Charge Sensor unique_id: {self._attr_unique_id}")  # Log the unique ID
         self._attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
 
     @property
@@ -166,7 +165,6 @@ class MarstekTotalPowerSensor(SensorEntity):
         self._attr_name = "Total Power Across Devices"
         # Use entry_id for a stable unique ID
         self._attr_unique_id = f"total_power_all_devices_{entry_id}"
-        _LOGGER.debug(f"Total Power Sensor unique_id: {self._attr_unique_id}")  # Log the unique ID
         self._attr_native_unit_of_measurement = UnitOfPower.WATT
 
     @property
