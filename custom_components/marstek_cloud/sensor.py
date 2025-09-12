@@ -56,6 +56,8 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
     # Add total charge across all devices sensor
     entities.append(MarstekTotalChargeSensor(coordinator))
+    # Add total power across all devices sensor
+    entities.append(MarstekTotalPowerSensor(coordinator))
 
     async_add_entities(entities)
 
@@ -165,6 +167,32 @@ class MarstekTotalChargeSensor(SensorEntity):
             capacity_kwh = device.get("capacity_kwh", DEFAULT_CAPACITY_KWH)
             total_charge += (soc / 100) * capacity_kwh
         return round(total_charge, 2)
+
+    @property
+    def extra_state_attributes(self):
+        return {
+            "device_count": len(self.coordinator.data),
+        }
+
+
+class MarstekTotalPowerSensor(SensorEntity):
+    """Sensor to calculate the total charge and discharge power across all devices."""
+
+    def __init__(self, coordinator):
+        self.coordinator = coordinator
+        self._attr_name = "Total Power Across Devices"
+        self._attr_unique_id = f"total_power_all_devices_{id(self.coordinator)}"  # Ensure unique ID for total power sensor
+        self._attr_native_unit_of_measurement = UnitOfPower.WATT
+
+    @property
+    def native_value(self):
+        """Return the total power (charge - discharge) across all devices."""
+        total_power = 0
+        for device in self.coordinator.data:
+            charge_power = device.get("charge", 0)
+            discharge_power = device.get("discharge", 0)
+            total_power += charge_power - discharge_power
+        return round(total_power, 2)
 
     @property
     def extra_state_attributes(self):

@@ -26,6 +26,9 @@ This custom integration connects your Marstek battery system (via the Marstek cl
 - **Cross-device total charge sensor**  
   - `total_charge_all_devices` – Sum of total charges across all batteries (kWh).
 
+- **Cross-device total power sensor**  
+  - `total_power_all_devices` – Difference between charge and discharge power across all batteries (W).
+
 - **Diagnostic sensors**  
   - `last_update` – Time of last successful update
   - `api_latency` – API call duration in milliseconds
