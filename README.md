@@ -21,13 +21,10 @@ This custom integration connects your Marstek battery system (via the Marstek cl
   - `version` – Firmware version
   - `sn` – Serial number
   - `report_time` – Timestamp of last report
-  - `total_charge` – Total charge (kWh) per battery
+  - `total_charge` – Total charge per device (kWh).
 
 - **Cross-device total charge sensor**  
   - `total_charge_all_devices` – Sum of total charges across all batteries (kWh).
-
-- **Cross-device total power sensor**  
-  - `total_power_all_devices` – Difference between charge and discharge power across all batteries (W).
 
 - **Diagnostic sensors**  
   - `last_update` – Time of last successful update
@@ -91,14 +88,14 @@ Here’s how the integration works internally:
   - Returns the list of devices to all entities.
 
 ### 5. **Entity Creation**
-- `sensor.py`:
-  - For each device in the API response, creates:
-    - One `MarstekSensor` per metric in `SENSOR_TYPES`.
-    - One `MarstekChargeSensor` for `total_charge`.
-    - One `MarstekDiagnosticSensor` per metric in `DIAGNOSTIC_SENSORS`.
-  - Creates a `MarstekTotalChargeSensor` for the cross-device total charge.
-  - Each entity has:
-    - A unique ID (`devid_fieldname`).
+- `sensor.py`:  
+  - For each device in the API response, creates:  
+    - One `MarstekSensor` per metric in `SENSOR_TYPES`.  
+    - One `MarstekDiagnosticSensor` per metric in `DIAGNOSTIC_SENSORS`.  
+    - One `MarstekDeviceTotalChargeSensor` for the total charge per device.  
+  - Creates a `MarstekTotalChargeSensor` for the cross-device total charge.  
+  - Each entity has:  
+    - A unique ID (`devid_fieldname`).  
     - Device info (name, model, serial, firmware, manufacturer).
 
 ### 6. **Updates**

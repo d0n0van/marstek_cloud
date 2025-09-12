@@ -19,8 +19,7 @@ SENSOR_TYPES = {
     "profit": {"name": "Profit", "unit": CURRENCY_EURO},
     "version": {"name": "Firmware Version", "unit": None},
     "sn": {"name": "Serial Number", "unit": None},
-    "report_time": {"name": "Report Time", "unit": UnitOfTime.SECONDS},
-    "total_charge": {"name": "Total Charge", "unit": UnitOfEnergy.KILO_WATT_HOUR},
+    "report_time": {"name": "Report Time", "unit": UnitOfTime.SECONDS}
 }
 
 # Diagnostic sensors for integration health
@@ -38,24 +37,21 @@ async def async_setup_entry(hass, entry, async_add_entities):
     coordinator = hass.data[DOMAIN][entry.entry_id]
     entities = []
 
-    _LOGGER.debug("Coordinator data: %s", coordinator.data)
-
     for device in coordinator.data:
-        _LOGGER.debug("Processing device: %s", device)
-
         # Add main battery data sensors
         for key, meta in SENSOR_TYPES.items():
             entities.append(MarstekSensor(coordinator, device, key, meta))
-
-        # Add total charge sensor
-        entities.append(MarstekChargeSensor(coordinator, device, entry))
 
         # Add diagnostic sensors
         for key, meta in DIAGNOSTIC_SENSORS.items():
             entities.append(MarstekDiagnosticSensor(coordinator, device, key, meta))
 
+        # Add total charge per device sensor
+        entities.append(MarstekDeviceTotalChargeSensor(coordinator, device, "total_charge", {"name": "Total Charge", "unit": UnitOfEnergy.KILO_WATT_HOUR}))
+
     # Add total charge across all devices sensor
     entities.append(MarstekTotalChargeSensor(coordinator))
+
     # Add total power across all devices sensor
     entities.append(MarstekTotalPowerSensor(coordinator))
 
@@ -123,32 +119,6 @@ class MarstekDiagnosticSensor(MarstekBaseSensor):
         return None
 
 
-class MarstekChargeSensor(MarstekBaseSensor):
-    """Sensor to calculate total charge in kWh."""
-
-    def __init__(self, coordinator, device, config_entry):
-        super().__init__(coordinator, device, "total_charge", SENSOR_TYPES["total_charge"])
-        self.config_entry = config_entry
-        self._attr_unique_id = f"{self.devid}_sensor_{self.key}"  # Ensure unique ID includes device ID and sensor key
-
-    @property
-    def native_value(self):
-        """Return the total charge in kWh."""
-        device_data = next((dev for dev in self.coordinator.data if dev["devid"] == self.devid), None)
-        if not device_data:
-            return None
-        soc = device_data.get("soc", 0)
-        capacity_kwh = self.config_entry.options.get(f"{self.devid}_capacity_kwh", DEFAULT_CAPACITY_KWH)
-        return round((soc / 100) * capacity_kwh, 2)
-
-    @property
-    def extra_state_attributes(self):
-        capacity_kwh = self.config_entry.options.get(f"{self.devid}_capacity_kwh", DEFAULT_CAPACITY_KWH)
-        return {
-            "capacity_kwh": capacity_kwh,
-        }
-
-
 class MarstekTotalChargeSensor(SensorEntity):
     """Sensor to calculate the total charge across all devices."""
 
@@ -198,4 +168,22 @@ class MarstekTotalPowerSensor(SensorEntity):
     def extra_state_attributes(self):
         return {
             "device_count": len(self.coordinator.data),
+        }
+
+
+class MarstekDeviceTotalChargeSensor(MarstekBaseSensor):
+    """Sensor to calculate the total charge for a specific device."""
+
+    @property
+    def native_value(self):
+        """Return the total charge for the device."""
+        soc = self.device_data.get("soc", 0)
+        capacity_kwh = self.device_data.get("capacity_kwh", DEFAULT_CAPACITY_KWH)
+        return round((soc / 100) * capacity_kwh, 2)
+
+    @property
+    def extra_state_attributes(self):
+        return {
+            "device_name": self.device_data.get("name"),
+            "capacity_kwh": self.device_data.get("capacity_kwh", DEFAULT_CAPACITY_KWH),
         }
