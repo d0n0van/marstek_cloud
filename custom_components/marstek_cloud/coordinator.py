@@ -53,7 +53,7 @@ class MarstekCoordinator(DataUpdateCoordinator):
         super().__init__(
             hass,
             logger=_LOGGER,
-            name="Marstek Battery",
+            name="Marstek Cloud",
             update_interval=timedelta(seconds=scan_interval),
         )
         self.api = api

@@ -21,6 +21,10 @@ This custom integration connects your Marstek battery system (via the Marstek cl
   - `version` – Firmware version
   - `sn` – Serial number
   - `report_time` – Timestamp of last report
+  - `total_charge` – Total charge (kWh) per battery
+
+- **Cross-device total charge sensor**  
+  - `total_charge_all_devices` – Sum of total charges across all batteries (kWh).
 
 - **Diagnostic sensors**  
   - `last_update` – Time of last successful update
@@ -29,6 +33,9 @@ This custom integration connects your Marstek battery system (via the Marstek cl
 
 - **Device registry integration**  
   Each battery appears as a device in HA with model, serial number, firmware version, and manufacturer.
+
+- **Editable battery capacity**  
+  Configure the capacity (in kWh) for each battery during setup or later via the Options menu.
 
 ---
 
@@ -44,8 +51,9 @@ This custom integration connects your Marstek battery system (via the Marstek cl
 ## ⚙ Configuration
 
 - **Scan interval** can be set during initial setup and changed later via the integration’s **Configure** option.
-- Default is 60 seconds.
-- Minimum is 10 seconds, maximum is 3600 seconds.
+- **Battery capacity** (in kWh) can be set for each battery during setup or via the **Options** menu.
+- Default capacity is 5.12 kWh.
+- Minimum scan interval is 10 seconds, maximum is 3600 seconds.
 
 ---
 
@@ -54,7 +62,7 @@ This custom integration connects your Marstek battery system (via the Marstek cl
 Here’s how the integration works internally:
 
 ### 1. **Setup**
-- `config_flow.py` collects your email, password, and scan interval.
+- `config_flow.py` collects your email, password, scan interval, and battery capacities.
 - These are stored securely in HA’s config entries.
 
 ### 2. **Coordinator & API**
@@ -83,7 +91,9 @@ Here’s how the integration works internally:
 - `sensor.py`:
   - For each device in the API response, creates:
     - One `MarstekSensor` per metric in `SENSOR_TYPES`.
+    - One `MarstekChargeSensor` for `total_charge`.
     - One `MarstekDiagnosticSensor` per metric in `DIAGNOSTIC_SENSORS`.
+  - Creates a `MarstekTotalChargeSensor` for the cross-device total charge.
   - Each entity has:
     - A unique ID (`devid_fieldname`).
     - Device info (name, model, serial, firmware, manufacturer).
@@ -115,8 +125,8 @@ sequenceDiagram
     participant API as Marstek API
     participant ENT as Sensor Entities
 
-    HA->>CF: User enters email, password, scan interval
-    CF-->>HA: Store credentials & scan interval
+    HA->>CF: User enters email, password, scan interval, capacities
+    CF-->>HA: Store credentials, scan interval, capacities
     HA->>CO: Create coordinator with API client
     CO->>API: POST login (MD5 password)
     API-->>CO: Return token
@@ -132,3 +142,4 @@ sequenceDiagram
         CO-->>ENT: Update all sensor values
         ENT-->>HA: Display updated metrics
     end
+```
