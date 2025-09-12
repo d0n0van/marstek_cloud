@@ -4,6 +4,7 @@ from homeassistant.const import (
     PERCENTAGE,
     UnitOfPower,
     UnitOfTime,
+    UnitOfEnergy,
     CURRENCY_EURO,
 )
 from .const import DOMAIN, DEFAULT_CAPACITY_KWH
@@ -19,7 +20,7 @@ SENSOR_TYPES = {
     "version": {"name": "Firmware Version", "unit": None},
     "sn": {"name": "Serial Number", "unit": None},
     "report_time": {"name": "Report Time", "unit": UnitOfTime.SECONDS},
-    "total_charge": {"name": "Total Charge", "unit": "kWh"},
+    "total_charge": {"name": "Total Charge", "unit": UnitOfEnergy.KILO_WATT_HOUR},
 }
 
 # Diagnostic sensors for integration health
@@ -153,7 +154,7 @@ class MarstekTotalChargeSensor(SensorEntity):
         self.coordinator = coordinator
         self._attr_name = "Total Charge Across Devices"
         self._attr_unique_id = f"total_charge_all_devices_{id(self.coordinator)}"  # Ensure unique ID for total charge sensor
-        self._attr_native_unit_of_measurement = "kWh"
+        self._attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
 
     @property
     def native_value(self):

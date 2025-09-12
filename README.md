@@ -35,7 +35,7 @@ This custom integration connects your Marstek battery system (via the Marstek cl
   Each battery appears as a device in HA with model, serial number, firmware version, and manufacturer.
 
 - **Editable battery capacity**  
-  Configure the capacity (in kWh) for each battery during setup or later via the Options menu.
+  Configure the default capacity (in kWh) for each battery during setup or later via the Options menu.
 
 ---
 
@@ -51,7 +51,7 @@ This custom integration connects your Marstek battery system (via the Marstek cl
 ## ⚙ Configuration
 
 - **Scan interval** can be set during initial setup and changed later via the integration’s **Configure** option.
-- **Battery capacity** (in kWh) can be set for each battery during setup or via the **Options** menu.
+- **Default battery capacity** (in kWh) can be set for each battery during setup or via the **Options** menu.
 - Default capacity is 5.12 kWh.
 - Minimum scan interval is 10 seconds, maximum is 3600 seconds.
 
@@ -62,7 +62,7 @@ This custom integration connects your Marstek battery system (via the Marstek cl
 Here’s how the integration works internally:
 
 ### 1. **Setup**
-- `config_flow.py` collects your email, password, scan interval, and battery capacities.
+- `config_flow.py` collects your email, password, scan interval, and default battery capacities.
 - These are stored securely in HA’s config entries.
 
 ### 2. **Coordinator & API**
