@@ -35,6 +35,9 @@ class MarstekAPI:
         async with async_timeout.timeout(10):
             async with self._session.get(API_DEVICES, params=params) as resp:
                 data = await resp.json()
+                
+                # Debug: Log the full API response
+                _LOGGER.debug("Marstek API full response: %s", data)
 
                 # Handle token expiration or invalid token
                 if str(data.get("code")) in ("-1", "401", "403") or "token" in str(data).lower():
@@ -43,6 +46,9 @@ class MarstekAPI:
                     params["token"] = self._token
                     async with self._session.get(API_DEVICES, params=params) as retry_resp:
                         data = await retry_resp.json()
+                        
+                        # Debug: Log the full API response after retry
+                        _LOGGER.debug("Marstek API full response (after retry): %s", data)
 
                 # Handle specific error code 8 (no access permission)
                 if str(data.get("code")) == "8":
@@ -70,4 +76,9 @@ class MarstekCoordinator(DataUpdateCoordinator):
         start = time.perf_counter()
         devices = await self.api.get_devices()
         self.last_latency = round((time.perf_counter() - start) * 1000, 1)
+        
+        # Debug: Log the processed device data
+        _LOGGER.debug("Marstek processed device data: %s", devices)
+        _LOGGER.debug("Marstek API latency: %s ms", self.last_latency)
+        
         return devices
