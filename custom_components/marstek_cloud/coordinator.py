@@ -46,7 +46,8 @@ class MarstekAPI:
 
                 # Handle specific error code 8 (no access permission)
                 if str(data.get("code")) == "8":
-                    _LOGGER.error("Marstek: No access permission (code 8). Will retry on next update.")
+                    _LOGGER.error("Marstek: No access permission (code 8). Clearing token and will retry on next update.")
+                    self._token = None  # Clear the token so a new one will be obtained on next attempt
                     raise UpdateFailed(f"Device fetch failed: {data}")
 
                 if "data" not in data:
