@@ -79,6 +79,7 @@ Here’s how the integration works internally:
 - On each update, `MarstekAPI.get_devices()`:
   - Calls `https://eu.hamedata.com/ems/api/v1/getDeviceList` with the token.
   - If the API responds with an invalid/expired token, it refreshes and retries once.
+  - If the API responds with error code `8` (no access permission), it logs the error and retries in the next update cycle.
 
 ### 4. **Data Fetching**
 - The coordinator’s `_async_update_data()`:

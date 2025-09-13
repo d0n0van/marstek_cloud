@@ -36,12 +36,18 @@ class MarstekAPI:
             async with self._session.get(API_DEVICES, params=params) as resp:
                 data = await resp.json()
 
+                # Handle token expiration or invalid token
                 if str(data.get("code")) in ("-1", "401", "403") or "token" in str(data).lower():
                     _LOGGER.warning("Marstek: Token expired or invalid, refreshing...")
                     await self._get_token()
                     params["token"] = self._token
                     async with self._session.get(API_DEVICES, params=params) as retry_resp:
                         data = await retry_resp.json()
+
+                # Handle specific error code 8 (no access permission)
+                if str(data.get("code")) == "8":
+                    _LOGGER.error("Marstek: No access permission (code 8). Will retry on next update.")
+                    raise UpdateFailed(f"Device fetch failed: {data}")
 
                 if "data" not in data:
                     raise UpdateFailed(f"Device fetch failed: {data}")
