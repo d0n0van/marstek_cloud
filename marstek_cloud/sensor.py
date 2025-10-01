@@ -1,14 +1,14 @@
+"""Marstek Cloud sensor entities for Home Assistant."""
+
+from __future__ import annotations
+
+import logging
 from datetime import datetime
 from homeassistant.components.sensor import SensorEntity
-from homeassistant.const import (
-    PERCENTAGE,
-    UnitOfPower,
-    UnitOfTime,
-    UnitOfEnergy,
-    CURRENCY_EURO,
-)
-from .const import DOMAIN, DEFAULT_CAPACITY_KWH
-import logging
+from homeassistant.const import (CURRENCY_EURO, PERCENTAGE, UnitOfEnergy,
+                                 UnitOfPower, UnitOfTime)
+
+from .const import DEFAULT_CAPACITY_KWH, DOMAIN
 
 # Main battery data sensors
 SENSOR_TYPES = {
@@ -19,7 +19,7 @@ SENSOR_TYPES = {
     "profit": {"name": "Profit", "unit": CURRENCY_EURO},
     "version": {"name": "Firmware Version", "unit": None},
     "sn": {"name": "Serial Number", "unit": None},
-    "report_time": {"name": "Report Time", "unit": UnitOfTime.SECONDS}
+    "report_time": {"name": "Report Time", "unit": UnitOfTime.SECONDS},
 }
 
 # Diagnostic sensors for integration health
@@ -54,7 +54,14 @@ async def async_setup_entry(hass, entry, async_add_entities):
         # Add total charge per device sensor
         unique_id = f"{device['devid']}_total_charge"
         if unique_id not in existing_entities:  # Check if entity already exists
-            entities.append(MarstekDeviceTotalChargeSensor(coordinator, device, "total_charge", {"name": "Total Charge", "unit": UnitOfEnergy.KILO_WATT_HOUR}))
+            entities.append(
+                MarstekDeviceTotalChargeSensor(
+                    coordinator,
+                    device,
+                    "total_charge",
+                    {"name": "Total Charge", "unit": UnitOfEnergy.KILO_WATT_HOUR},
+                )
+            )
 
     # Add total charge across all devices sensor
     unique_id = f"total_charge_all_devices_{entry.entry_id}"

@@ -57,6 +57,52 @@ This custom integration connects your Marstek battery system (via the Marstek cl
 
 ---
 
+## 🧪 Testing
+
+The integration includes comprehensive tests to ensure reliability and functionality.
+
+### Running Tests
+
+```bash
+# Run unit tests only (default)
+pytest
+
+# Run with coverage
+pytest --cov=marstek_cloud
+
+# Run specific test file
+pytest tests/test_coordinator.py
+
+# Run integration tests (requires real API credentials)
+python run_integration_test.py
+
+# Or run integration tests directly
+pytest tests/test_integration.py -v -s
+```
+
+### Integration Testing
+
+To test against the real Marstek Cloud API:
+
+1. Create a `.env` file with your credentials:
+   ```bash
+   cp env.example .env
+   # Edit .env with your real credentials
+   ```
+
+2. Run integration tests:
+   ```bash
+   python run_integration_test.py
+   ```
+
+The integration tests will:
+- Test real API authentication
+- Fetch actual device data
+- Test performance and error handling
+- Validate data structure from real API
+
+---
+
 ## 🔍 Logic Flow
 
 Here’s how the integration works internally:

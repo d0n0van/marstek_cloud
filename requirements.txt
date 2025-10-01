@@ -1,0 +1,11 @@
+# Marstek Cloud Home Assistant Integration Requirements
+# Core dependencies for the integration
+
+# HTTP client for API communication
+aiohttp>=3.8.0
+
+# Configuration validation
+voluptuous>=0.12.0
+
+# Note: Home Assistant modules (helpers, components, const, config_entries)
+# are provided by the Home Assistant core and don't need separate installation
