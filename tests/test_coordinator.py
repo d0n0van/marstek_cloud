@@ -71,8 +71,10 @@ class TestMarstekAPI:
     @pytest.mark.asyncio
     async def test_get_devices_success(self, api_client, mock_session):
         """Test successful device retrieval."""
-        # Mock token
+        # Mock token with expiration
+        from datetime import datetime, timedelta
         api_client._token = "test_token_123"
+        api_client._token_expires_at = datetime.now() + timedelta(hours=1)
 
         mock_response = Mock()
         mock_response.status = 200
@@ -96,7 +98,9 @@ class TestMarstekAPI:
     @pytest.mark.asyncio
     async def test_get_devices_permission_error(self, api_client, mock_session):
         """Test permission error handling."""
+        from datetime import datetime, timedelta
         api_client._token = "test_token_123"
+        api_client._token_expires_at = datetime.now() + timedelta(hours=1)
 
         mock_response = Mock()
         mock_response.status = 200
@@ -112,6 +116,7 @@ class TestMarstekAPI:
 
         # Token should be cleared
         assert api_client._token is None
+        assert api_client._token_expires_at is None
 
 
 class TestMarstekCoordinator:
