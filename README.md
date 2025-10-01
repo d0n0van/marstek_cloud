@@ -103,6 +103,37 @@ The integration tests will:
 
 ---
 
+## ⚡ Energy Dashboard Integration
+
+To integrate your Marstek battery data with Home Assistant's Energy Dashboard, add the following template sensors to your `configuration.yaml`:
+
+```yaml
+template:
+  - sensor:
+      - name: "Marstek charge"
+        unit_of_measurement: "kWh"
+        unique_id: venus_charge_power
+        state: "{{ (states('sensor.mst_vnse3_a4c2_charge_power') | float(0) / 1000) | round(2) }}"
+        state_class: total
+        device_class: energy
+  - sensor:
+      - name: "Marstek discharge"
+        unit_of_measurement: "kWh"
+        unique_id: venus_discharge_power
+        state: "{{ (states('sensor.mst_vnse3_a4c2_discharge_power') | float(0) / 1000) | round(2) }}"
+        state_class: total
+        device_class: energy
+```
+
+**Note**: Replace `mst_vnse3_a4c2` with your actual device name from the Marstek Cloud integration. You can find the exact sensor names in **Settings → Devices & Services → Entities**.
+
+After adding these templates:
+1. Restart Home Assistant
+2. Go to **Settings → Energy**
+3. Add the "Marstek charge" and "Marstek discharge" sensors to your battery configuration
+
+---
+
 ## 🔍 Logic Flow
 
 Here’s how the integration works internally:
