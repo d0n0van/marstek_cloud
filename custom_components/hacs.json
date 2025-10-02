@@ -1,0 +1,7 @@
+{
+  "name": "Marstek Cloud Battery",
+  "content_in_root": false,
+  "domains": ["sensor"],
+  "homeassistant": "2024.1.0",
+  "iot_class": "cloud_polling"
+}

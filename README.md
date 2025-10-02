@@ -1,5 +1,9 @@
 # Marstek Cloud Battery – Home Assistant Custom Integration
 
+[![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/custom-components/hacs)
+[![GitHub release](https://img.shields.io/github/release/d0n0van/marstek_cloud.svg)](https://github.com/d0n0van/marstek_cloud/releases)
+[![GitHub stars](https://img.shields.io/github/stars/d0n0van/marstek_cloud.svg?style=social&label=Stars)](https://github.com/d0n0van/marstek_cloud)
+
 This custom integration connects your Marstek battery system (via the Marstek cloud API) to Home Assistant, pulling live data and exposing it as sensor entities.
 
 ---
@@ -43,10 +47,27 @@ This custom integration connects your Marstek battery system (via the Marstek cl
 
 ## 🛠 Installation
 
-1. Copy the `marstek_cloud` folder into your Home Assistant `custom_components` directory.
-2. Restart Home Assistant.
-3. Go to **Settings → Devices & Services → Add Integration** and search for **Marstek Cloud Battery**.
-4. Enter your Marstek cloud email, password, and desired scan interval.
+### Option 1: HACS (Recommended)
+
+1. Install [HACS](https://hacs.xyz/) if you haven't already
+2. In HACS, go to **Integrations**
+3. Click the three dots menu (⋮) and select **Custom repositories**
+4. Add this repository: `https://github.com/d0n0van/marstek_cloud`
+5. Select **Integration** as the category
+6. Click **Add** and then **Install**
+7. Restart Home Assistant
+8. Go to **Settings → Devices & Services → Add Integration** and search for **Marstek Cloud Battery**
+
+### Option 2: Manual Installation
+
+1. Download the latest release from [GitHub](https://github.com/d0n0van/marstek_cloud/releases)
+2. Extract the `marstek_cloud` folder into your Home Assistant `custom_components` directory
+3. Restart Home Assistant
+4. Go to **Settings → Devices & Services → Add Integration** and search for **Marstek Cloud Battery**
+
+### Configuration
+
+Enter your Marstek cloud email, password, and desired scan interval during setup.
 
 ---
 
