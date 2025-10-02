@@ -15,6 +15,8 @@ SENSOR_TYPES = {
     "soc": {"name": "State of Charge", "unit": PERCENTAGE},
     "charge": {"name": "Charge Power", "unit": UnitOfPower.WATT},
     "discharge": {"name": "Discharge Power", "unit": UnitOfPower.WATT},
+    "charge_kwh": {"name": "Charge Power kWh", "unit": UnitOfEnergy.KILO_WATT_HOUR, "state_class": "total", "device_class": "energy"},
+    "discharge_kwh": {"name": "Discharge Power kWh", "unit": UnitOfEnergy.KILO_WATT_HOUR, "state_class": "total", "device_class": "energy"},
     "load": {"name": "Load", "unit": UnitOfPower.WATT},
     "profit": {"name": "Profit", "unit": CURRENCY_EURO},
     "version": {"name": "Firmware Version", "unit": None},
@@ -104,12 +106,35 @@ class MarstekBaseSensor(SensorEntity):
 class MarstekSensor(MarstekBaseSensor):
     """Sensor for actual battery data."""
 
+    def __init__(self, coordinator, device, key, meta):
+        super().__init__(coordinator, device, key, meta)
+        # Set state_class and device_class for energy sensors
+        if "state_class" in meta:
+            self._attr_state_class = meta["state_class"]
+        if "device_class" in meta:
+            self._attr_device_class = meta["device_class"]
+
     @property
     def native_value(self):
         """Return the current value of the sensor."""
         for dev in self.coordinator.data:
             if dev["devid"] == self.devid:
-                return dev.get(self.key)
+                # For kWh sensors, get the corresponding power value
+                if self.key == "charge_kwh":
+                    value = dev.get("charge")
+                elif self.key == "discharge_kwh":
+                    value = dev.get("discharge")
+                else:
+                    value = dev.get(self.key)
+                
+                # Convert power (W) to energy (kWh) for kWh sensors
+                if self.key in ["charge_kwh", "discharge_kwh"]:
+                    if value is not None and isinstance(value, (int, float)):
+                        # Convert watts to kWh (divide by 1000)
+                        return round(value / 1000, 2)
+                    return 0.0
+                
+                return value
         return None
 
     async def async_update(self):

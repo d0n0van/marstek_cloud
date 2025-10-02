@@ -16,6 +16,8 @@ This custom integration connects your Marstek battery system (via the Marstek cl
   - `soc` – State of charge (%)
   - `charge` – Charge power (W)
   - `discharge` – Discharge power (W)
+  - `charge_kwh` – Charge power (kWh) with `state_class: total` and `device_class: energy`
+  - `discharge_kwh` – Discharge power (kWh) with `state_class: total` and `device_class: energy`
   - `load` – Load power (W)
   - `profit` – Profit (€)
   - `version` – Firmware version
@@ -105,7 +107,21 @@ The integration tests will:
 
 ## ⚡ Energy Dashboard Integration
 
-To integrate your Marstek battery data with Home Assistant's Energy Dashboard, add the following template sensors to your `configuration.yaml`:
+The integration now provides **native Energy Dashboard support** with dedicated kWh sensors that have the correct `state_class: total` and `device_class: energy` attributes.
+
+### Option 1: Use Native kWh Sensors (Recommended)
+
+The integration automatically creates these sensors for each device:
+- `sensor.{device_name}_charge_power_kwh` – Charge power in kWh
+- `sensor.{device_name}_discharge_power_kwh` – Discharge power in kWh
+
+To use them in the Energy Dashboard:
+1. Go to **Settings → Energy**
+2. Add the `charge_power_kwh` and `discharge_power_kwh` sensors to your battery configuration
+
+### Option 2: Custom Template Sensors
+
+If you prefer custom names, you can still use template sensors:
 
 ```yaml
 template:
@@ -126,11 +142,6 @@ template:
 ```
 
 **Note**: Replace `mst_vnse3_a4c2` with your actual device name from the Marstek Cloud integration. You can find the exact sensor names in **Settings → Devices & Services → Entities**.
-
-After adding these templates:
-1. Restart Home Assistant
-2. Go to **Settings → Energy**
-3. Add the "Marstek charge" and "Marstek discharge" sensors to your battery configuration
 
 ---
 
