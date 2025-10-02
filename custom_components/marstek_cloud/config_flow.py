@@ -58,6 +58,19 @@ class MarstekOptionsFlow(config_entries.OptionsFlow):
         # Generate a schema for editing capacity_kwh for each battery with descriptions
         options = self._config_entry.options
         data_schema = {}
+        
+        # Add scan_interval option
+        data_schema[
+            vol.Optional(
+                "scan_interval",
+                default=options.get("scan_interval", self._config_entry.data.get("scan_interval", DEFAULT_SCAN_INTERVAL)),
+                description={
+                    "suggested_value": DEFAULT_SCAN_INTERVAL,
+                    "description": "Update interval for fetching data from Marstek Cloud API (10-3600 seconds)",
+                },
+            )
+        ] = vol.All(vol.Coerce(int), vol.Range(min=10, max=3600))
+        
         # Handle missing devices key gracefully
         devices = self._config_entry.data.get("devices", [])
         if not devices:
