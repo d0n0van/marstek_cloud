@@ -1,4 +1,8 @@
-"""Marstek Cloud sensor entities for Home Assistant."""
+"""Marstek Cloud sensor entities for Home Assistant.
+
+Original work by @DoctaShizzle: https://github.com/DoctaShizzle/marstek_cloud
+This fork adds Energy Dashboard support with native kWh sensors.
+"""
 
 from __future__ import annotations
 

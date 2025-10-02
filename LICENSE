@@ -1,0 +1,34 @@
+# Marstek Cloud Battery - Home Assistant Integration
+
+## Original Work Attribution
+
+This project is a fork of the original Marstek Cloud integration created by [@DoctaShizzle](https://github.com/DoctaShizzle).
+
+**Original Repository**: https://github.com/DoctaShizzle/marstek_cloud
+**Original Author**: @DoctaShizzle
+
+## Fork Enhancements
+
+This fork builds upon the original work with the following additions:
+- HACS support and repository structure
+- Energy Dashboard integration with native kWh sensors
+- API optimizations (caching, adaptive intervals)
+- Production-ready code quality improvements
+- Comprehensive testing and documentation
+
+## License
+
+This project maintains the same license as the original repository. Please refer to the original repository for the complete license terms.
+
+## Credits
+
+- **Original Integration**: @DoctaShizzle - All core functionality, API communication, and sensor implementation
+- **Fork Maintainer**: @d0n0van - HACS support, Energy Dashboard integration, and production enhancements
+
+## Usage
+
+This integration is provided as-is. Users should refer to the original repository for core functionality and this fork for additional features.
+
+For issues related to:
+- **Core functionality**: Please report to the original repository
+- **Fork-specific features**: Please report to this repository

@@ -1,4 +1,8 @@
-"""Marstek Cloud Battery Home Assistant Integration."""
+"""Marstek Cloud Battery Home Assistant Integration.
+
+Original work by @DoctaShizzle: https://github.com/DoctaShizzle/marstek_cloud
+This fork adds HACS support, Energy Dashboard integration, and production enhancements.
+"""
 
 from __future__ import annotations
 

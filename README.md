@@ -4,6 +4,8 @@
 [![GitHub release](https://img.shields.io/github/release/d0n0van/marstek_cloud.svg)](https://github.com/d0n0van/marstek_cloud/releases)
 [![GitHub stars](https://img.shields.io/github/stars/d0n0van/marstek_cloud.svg?style=social&label=Stars)](https://github.com/d0n0van/marstek_cloud)
 
+> **📝 Fork Notice**: This is a fork of the original [Marstek Cloud integration](https://github.com/DoctaShizzle/marstek_cloud) by [@DoctaShizzle](https://github.com/DoctaShizzle). All original work and credits go to the original developer. This fork adds HACS support, Energy Dashboard integration, API optimizations, and production-ready enhancements.
+
 This custom integration connects your Marstek battery system (via the Marstek cloud API) to Home Assistant, pulling live data and exposing it as sensor entities.
 
 ---
@@ -253,3 +255,32 @@ sequenceDiagram
         ENT-->>HA: Display updated metrics
     end
 ```
+
+---
+
+## 🙏 Credits & Acknowledgments
+
+### Original Developer
+- **[@DoctaShizzle](https://github.com/DoctaShizzle)** - Original Marstek Cloud integration
+- **Repository**: [https://github.com/DoctaShizzle/marstek_cloud](https://github.com/DoctaShizzle/marstek_cloud)
+- **Original Work**: All core integration logic, API communication, and sensor implementation
+
+### Fork Enhancements
+This fork builds upon the original work with the following additions:
+- **HACS Support**: Repository structure and configuration for easy installation
+- **Energy Dashboard Integration**: Native kWh sensors with proper state_class and device_class
+- **API Optimizations**: Smart caching, adaptive intervals, and reduced API calls
+- **Production Readiness**: Comprehensive testing, error handling, and documentation
+- **Code Quality**: Type hints, linting, pre-commit hooks, and CI/CD setup
+
+### License
+This project maintains the same license as the original repository. Please refer to the original repository for licensing information.
+
+---
+
+## 📞 Support & Issues
+
+- **Original Issues**: [@DoctaShizzle/marstek_cloud/issues](https://github.com/DoctaShizzle/marstek_cloud/issues)
+- **Fork Issues**: [@d0n0van/marstek_cloud/issues](https://github.com/d0n0van/marstek_cloud/issues)
+- **HACS Support**: [HACS Discord](https://discord.gg/5a5J7UK)
+- **Home Assistant Community**: [Community Forum](https://community.home-assistant.io/)

@@ -1,4 +1,8 @@
-"""Marstek Cloud API coordinator and data fetching."""
+"""Marstek Cloud API coordinator and data fetching.
+
+Original work by @DoctaShizzle: https://github.com/DoctaShizzle/marstek_cloud
+This fork adds API optimizations, caching, and adaptive intervals.
+"""
 
 from __future__ import annotations
 
