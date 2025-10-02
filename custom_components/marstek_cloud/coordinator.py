@@ -25,13 +25,18 @@ _LOGGER = logging.getLogger(__name__)
 # Constants for API error handling
 TOKEN_ERROR_CODES = ("-1", "401", "403")
 NO_ACCESS_CODE = "8"
-API_TIMEOUT = 10
+RATE_LIMIT_CODE = "5"  # Rate limit exceeded
+API_TIMEOUT = 30
 
 # API optimization constants
 CACHE_TTL = 30  # Cache data for 30 seconds
 TOKEN_REFRESH_BUFFER = 300  # Refresh token 5 minutes before expiry
 ADAPTIVE_INTERVAL_MIN = 60  # Minimum interval (1 minute)
 ADAPTIVE_INTERVAL_MAX = 300  # Maximum interval (5 minutes)
+
+# Rate limiting constants
+MAX_CONCURRENT_REQUESTS = 2  # Conservative limit based on testing
+RATE_LIMIT_RETRY_DELAY = 5  # Seconds to wait after rate limit hit
 
 
 class MarstekAPIError(Exception):
@@ -48,6 +53,12 @@ class MarstekAuthenticationError(MarstekAPIError):
 
 class MarstekPermissionError(MarstekAPIError):
     """No access permission to Marstek API."""
+
+    pass
+
+
+class MarstekRateLimitError(MarstekAPIError):
+    """Rate limit exceeded for Marstek API."""
 
     pass
 
@@ -159,66 +170,92 @@ class MarstekAPI:
 
         params = {"token": self._token}
 
-        try:
-            timeout = aiohttp.ClientTimeout(total=API_TIMEOUT)
-            async with self._session.get(API_DEVICES, params=params, timeout=timeout) as resp:
-                    if resp.status != 200:
-                        raise UpdateFailed(
-                            f"API request failed with status {resp.status}"
-                        )
+        # Retry logic for timeout errors
+        max_retries = 2
+        for attempt in range(max_retries + 1):
+            try:
+                timeout = aiohttp.ClientTimeout(total=API_TIMEOUT)
+                async with self._session.get(API_DEVICES, params=params, timeout=timeout) as resp:
+                        if resp.status != 200:
+                            raise UpdateFailed(
+                                f"API request failed with status {resp.status}"
+                            )
 
-                    data = await resp.json()
-                    _LOGGER.debug("Marstek API response: %s", data)
+                        data = await resp.json()
+                        _LOGGER.debug("Marstek API response: %s", data)
 
-                    # Handle token expiration or invalid token
-                    if (
-                        str(data.get("code")) in TOKEN_ERROR_CODES
-                        or "token" in str(data).lower()
-                    ):
-                        _LOGGER.warning("Token expired or invalid, refreshing...")
-                        await self._get_token()
-                        params["token"] = self._token
+                        # Handle token expiration or invalid token
+                        if (
+                            str(data.get("code")) in TOKEN_ERROR_CODES
+                            or "token" in str(data).lower()
+                        ):
+                            _LOGGER.warning("Token expired or invalid, refreshing...")
+                            await self._get_token()
+                            params["token"] = self._token
 
-                        async with self._session.get(
-                            API_DEVICES, params=params, timeout=timeout
-                        ) as retry_resp:
-                            if retry_resp.status != 200:
-                                raise UpdateFailed(
-                                    f"Retry request failed with status {retry_resp.status}"
-                                )
-                            data = await retry_resp.json()
-                            _LOGGER.debug("Marstek API retry response: %s", data)
+                            async with self._session.get(
+                                API_DEVICES, params=params, timeout=timeout
+                            ) as retry_resp:
+                                if retry_resp.status != 200:
+                                    raise UpdateFailed(
+                                        f"Retry request failed with status {retry_resp.status}"
+                                    )
+                                data = await retry_resp.json()
+                                _LOGGER.debug("Marstek API retry response: %s", data)
 
-                    # Handle specific error code 8 (no access permission)
-                    if str(data.get("code")) == NO_ACCESS_CODE:
-                        _LOGGER.error(
-                            "No access permission (code 8). Clearing token for retry."
-                        )
-                        self._token = None
-                        self._token_expires_at = None
-                        raise MarstekPermissionError("No access permission")
+                        # Handle specific error code 8 (no access permission)
+                        if str(data.get("code")) == NO_ACCESS_CODE:
+                            _LOGGER.error(
+                                "No access permission (code 8). Clearing token for retry."
+                            )
+                            self._token = None
+                            self._token_expires_at = None
+                            raise MarstekPermissionError("No access permission")
+                        
+                        # Handle rate limit error code 5
+                        if str(data.get("code")) == RATE_LIMIT_CODE:
+                            _LOGGER.warning(
+                                "Rate limit exceeded (code 5). Waiting before retry."
+                            )
+                            raise MarstekRateLimitError("Rate limit exceeded")
 
-                    if "data" not in data:
-                        raise UpdateFailed(f"Invalid API response: {data}")
+                        if "data" not in data:
+                            raise UpdateFailed(f"Invalid API response: {data}")
 
-                    devices = data["data"]
-                    
-                    # Cache the data
-                    self._cached_devices = devices
-                    self._cache_timestamp = datetime.now()
-                    
-                    # Check if data has changed for adaptive intervals
-                    current_hash = self._get_data_hash(devices)
-                    if self._last_data_hash and current_hash == self._last_data_hash:
-                        _LOGGER.debug("Device data unchanged, will use longer interval")
-                    self._last_data_hash = current_hash
+                        devices = data["data"]
+                        
+                        # Cache the data
+                        self._cached_devices = devices
+                        self._cache_timestamp = datetime.now()
+                        
+                        # Check if data has changed for adaptive intervals
+                        current_hash = self._get_data_hash(devices)
+                        if self._last_data_hash and current_hash == self._last_data_hash:
+                            _LOGGER.debug("Device data unchanged, will use longer interval")
+                        self._last_data_hash = current_hash
 
-                    return devices
+                        return devices
 
-        except aiohttp.ClientError as ex:
-            raise UpdateFailed(f"Network error during device fetch: {ex}") from ex
-        except asyncio.TimeoutError as ex:
-            raise UpdateFailed("Device fetch request timed out") from ex
+            except asyncio.TimeoutError as ex:
+                if attempt < max_retries:
+                    _LOGGER.warning("Device fetch request timed out (attempt %d/%d), retrying...", 
+                                  attempt + 1, max_retries + 1)
+                    await asyncio.sleep(2 ** attempt)  # Exponential backoff: 1s, 2s
+                    continue
+                else:
+                    _LOGGER.error("Device fetch request timed out after %d attempts", max_retries + 1)
+                    raise UpdateFailed("Device fetch request timed out") from ex
+            except MarstekRateLimitError as ex:
+                if attempt < max_retries:
+                    _LOGGER.warning("Rate limit exceeded (attempt %d/%d), waiting %ds before retry...", 
+                                  attempt + 1, max_retries + 1, RATE_LIMIT_RETRY_DELAY)
+                    await asyncio.sleep(RATE_LIMIT_RETRY_DELAY)
+                    continue
+                else:
+                    _LOGGER.error("Rate limit exceeded after %d attempts", max_retries + 1)
+                    raise UpdateFailed("Rate limit exceeded") from ex
+            except aiohttp.ClientError as ex:
+                raise UpdateFailed(f"Network error during device fetch: {ex}") from ex
 
 
 class MarstekCoordinator(DataUpdateCoordinator[list[dict[str, Any]]]):
