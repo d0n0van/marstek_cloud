@@ -1,7 +1,7 @@
 {
   "domain": "marstek_cloud",
   "name": "Marstek Cloud Battery",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "documentation": "https://github.com/d0n0van/marstek_cloud",
   "issue_tracker": "https://github.com/d0n0van/marstek_cloud/issues",
   "requirements": ["aiohttp>=3.8.0", "voluptuous>=0.12.0"],
@@ -9,5 +9,6 @@
   "original_author": "@DoctaShizzle",
   "original_repository": "https://github.com/DoctaShizzle/marstek_cloud",
   "iot_class": "cloud_polling",
+  "loggers": ["marstek_cloud"],
   "config_flow": true
 }

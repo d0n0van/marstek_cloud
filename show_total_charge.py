@@ -5,6 +5,7 @@ import aiohttp
 from marstek_cloud.coordinator import MarstekAPI
 from dotenv import load_dotenv
 import os
+import json
 
 load_dotenv()
 

@@ -10,7 +10,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import DEFAULT_SCAN_INTERVAL, DOMAIN
-from .coordinator import MarstekAPI, MarstekCoordinator
+from .coordinator import MarstekAPI, MarstekCoordinator, SharedRateLimiter
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -33,7 +33,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             __import__(f"{__package__}.{platform}")
 
         session = async_get_clientsession(hass)
-        api = MarstekAPI(session, entry.data["email"], entry.data["password"])
+        
+        # Create shared rate limiter for all API instances
+        if DOMAIN not in hass.data:
+            hass.data[DOMAIN] = {}
+        if "rate_limiter" not in hass.data[DOMAIN]:
+            hass.data[DOMAIN]["rate_limiter"] = SharedRateLimiter()
+        
+        rate_limiter = hass.data[DOMAIN]["rate_limiter"]
+        api = MarstekAPI(session, entry.data["email"], entry.data["password"], rate_limiter)
 
         scan_interval = entry.options.get(
             "scan_interval",
