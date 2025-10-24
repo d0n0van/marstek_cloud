@@ -53,6 +53,16 @@ class MarstekOptionsFlow(config_entries.OptionsFlow):
     async def async_step_init(self, user_input=None):
         """Manage the options for the integration."""
         if user_input is not None:
+            # Update the config entry data with the new scan_interval
+            if "scan_interval" in user_input:
+                # Update the main data with the new scan_interval
+                new_data = {**self._config_entry.data, "scan_interval": user_input["scan_interval"]}
+                self.hass.config_entries.async_update_entry(
+                    self._config_entry, data=new_data
+                )
+                # Remove scan_interval from options since it's now in data
+                user_input = {k: v for k, v in user_input.items() if k != "scan_interval"}
+            
             return self.async_create_entry(title="", data=user_input)
 
         # Generate a schema for editing capacity_kwh for each battery with descriptions
