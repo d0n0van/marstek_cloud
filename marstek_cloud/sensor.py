@@ -24,6 +24,18 @@ SENSOR_TYPES = {
     "report_time": {"name": "Report Time", "unit": UnitOfTime.SECONDS},
 }
 
+# P1 meter specific sensors
+P1_SENSOR_TYPES = {
+    "grid": {"name": "Grid Power", "unit": UnitOfPower.WATT},
+    "pv": {"name": "PV Power", "unit": UnitOfPower.WATT},
+    "load": {"name": "Load Power", "unit": UnitOfPower.WATT},
+    "version": {"name": "Firmware Version", "unit": None},
+    "sn": {"name": "Serial Number", "unit": None},
+    "report_time": {"name": "Report Time", "unit": UnitOfTime.SECONDS},
+    "status": {"name": "Device Status", "unit": None},
+    "is_support": {"name": "Support Status", "unit": None},
+}
+
 # Diagnostic sensors for integration health
 DIAGNOSTIC_SENSORS = {
     "last_update": {"name": "Last Update", "unit": None},
@@ -41,11 +53,22 @@ async def async_setup_entry(hass, entry, async_add_entities):
     existing_entities = hass.states.async_entity_ids()  # Get existing entity IDs
 
     for device in coordinator.data:
-        # Add main battery data sensors
-        for key, meta in SENSOR_TYPES.items():
-            unique_id = f"{device['devid']}_{key}"
-            if unique_id not in existing_entities:  # Check if entity already exists
-                entities.append(MarstekSensor(coordinator, device, key, meta))
+        # Determine device type and use appropriate sensors
+        device_type = device.get('type', '').lower()
+        is_p1_meter = 'hme' in device_type or 'smr' in device.get('name', '').lower()
+        
+        if is_p1_meter:
+            # Add P1 meter specific sensors
+            for key, meta in P1_SENSOR_TYPES.items():
+                unique_id = f"{device['devid']}_{key}"
+                if unique_id not in existing_entities:  # Check if entity already exists
+                    entities.append(MarstekP1Sensor(coordinator, device, key, meta))
+        else:
+            # Add main battery data sensors
+            for key, meta in SENSOR_TYPES.items():
+                unique_id = f"{device['devid']}_{key}"
+                if unique_id not in existing_entities:  # Check if entity already exists
+                    entities.append(MarstekSensor(coordinator, device, key, meta))
 
         # Add diagnostic sensors
         for key, meta in DIAGNOSTIC_SENSORS.items():
@@ -232,3 +255,66 @@ class MarstekDeviceTotalChargeSensor(MarstekBaseSensor):
             "device_name": self.device_data.get("name"),
             "capacity_kwh": self.device_data.get("capacity_kwh", DEFAULT_CAPACITY_KWH),
         }
+
+
+class MarstekP1Sensor(MarstekBaseSensor):
+    """Sensor for P1 meter data with special handling for offline devices."""
+
+    def __init__(self, coordinator, device, key, meta):
+        super().__init__(coordinator, device, key, meta)
+        # Set state_class and device_class for energy sensors
+        if "state_class" in meta:
+            self._attr_state_class = meta["state_class"]
+        if "device_class" in meta:
+            self._attr_device_class = meta["device_class"]
+
+    @property
+    def native_value(self):
+        """Return the current value of the P1 meter sensor."""
+        for dev in self.coordinator.data:
+            if dev["devid"] == self.devid:
+                value = dev.get(self.key)
+                
+                # Special handling for P1 meter status
+                if self.key == "status":
+                    status = dev.get("status", 0)
+                    return "online" if status == 1 else "offline"
+                elif self.key == "is_support":
+                    support = dev.get("is_support", 0)
+                    return "supported" if support == 1 else "not_supported"
+                elif self.key == "report_time":
+                    # Handle None report_time for offline devices
+                    if value is None:
+                        return None
+                    try:
+                        return int(value)
+                    except (ValueError, TypeError):
+                        return None
+                else:
+                    # For power values, return 0 if device is offline
+                    if dev.get("status", 0) == 0:
+                        return 0
+                    return value
+        return None
+
+    @property
+    def extra_state_attributes(self):
+        """Return additional state attributes for P1 meter."""
+        attrs = {}
+        
+        # Add device status information
+        for dev in self.coordinator.data:
+            if dev["devid"] == self.devid:
+                attrs.update({
+                    "device_status": "online" if dev.get("status", 0) == 1 else "offline",
+                    "support_status": "supported" if dev.get("is_support", 0) == 1 else "not_supported",
+                    "device_type": dev.get("type", "Unknown"),
+                    "last_seen": dev.get("report_time"),
+                })
+                break
+        
+        return attrs
+
+    async def async_update(self):
+        """Manually trigger an update."""
+        await self.coordinator.async_request_refresh()
