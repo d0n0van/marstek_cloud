@@ -230,6 +230,9 @@ class MarstekAPI:
                 async with self._session.get(API_DEVICES, params=params, timeout=timeout) as resp:
                         if resp.status == 500:
                             raise MarstekServerError(f"Server error: {resp.status}")
+                        elif resp.status == 502:
+                            # 502 Bad Gateway is a transient error, retry it
+                            raise MarstekServerError(f"Bad Gateway: {resp.status}")
                         elif resp.status != 200:
                             raise UpdateFailed(
                                 f"API request failed with status {resp.status}"
@@ -432,15 +435,47 @@ class MarstekCoordinator(DataUpdateCoordinator[list[dict[str, Any]]]):
         if current_hash == self.api._last_data_hash:
             # Data unchanged, increase interval gradually
             self.consecutive_no_changes += 1
+            
+            # Cap consecutive_no_changes to prevent overflow (1.5^20 is already very large)
+            max_consecutive = 20
+            safe_consecutive = min(self.consecutive_no_changes, max_consecutive)
+            
             if self.consecutive_no_changes > 3:  # After 3 consecutive no-changes
-                new_interval = min(
-                    self.base_scan_interval * (1.5 ** (self.consecutive_no_changes - 3)),
-                    ADAPTIVE_INTERVAL_MAX
-                )
-                if new_interval != self.update_interval.total_seconds():
-                    self.update_interval = timedelta(seconds=new_interval)
-                    _LOGGER.debug("Adaptive interval: %d seconds (no changes: %d)", 
-                                int(new_interval), self.consecutive_no_changes)
+                try:
+                    # Calculate with bounds checking to prevent overflow
+                    exponent = safe_consecutive - 3
+                    
+                    # Pre-check if the exponent would cause overflow before calculating
+                    if exponent > 30:  # 1.5^30 is already ~191,737, much larger than any reasonable interval
+                        _LOGGER.debug("Exponent too large (%d), using max interval", exponent)
+                        calculated_interval = ADAPTIVE_INTERVAL_MAX
+                    else:
+                        try:
+                            multiplier = 1.5 ** exponent
+                            # Check if multiplier is valid before using it
+                            if not (0 < multiplier < float('inf')):
+                                calculated_interval = ADAPTIVE_INTERVAL_MAX
+                            else:
+                                calculated_interval = self.base_scan_interval * multiplier
+                        except (OverflowError, ValueError, OSError) as calc_ex:
+                            _LOGGER.debug("Calculation overflow (exponent: %d): %s", exponent, calc_ex)
+                            calculated_interval = ADAPTIVE_INTERVAL_MAX
+                    
+                    # Ensure the result is finite and within bounds
+                    if not (0 < calculated_interval < float('inf')):
+                        calculated_interval = ADAPTIVE_INTERVAL_MAX
+                    
+                    new_interval = min(calculated_interval, ADAPTIVE_INTERVAL_MAX)
+                    new_interval = max(new_interval, self.base_scan_interval)
+                    
+                    if new_interval != self.update_interval.total_seconds():
+                        self.update_interval = timedelta(seconds=new_interval)
+                        _LOGGER.debug("Adaptive interval: %d seconds (no changes: %d)", 
+                                    int(new_interval), self.consecutive_no_changes)
+                except (OverflowError, ValueError, OSError) as ex:
+                    _LOGGER.warning("Failed to calculate adaptive interval: %s, using max", ex)
+                    self.update_interval = timedelta(seconds=ADAPTIVE_INTERVAL_MAX)
+                    self.consecutive_no_changes = max_consecutive  # Reset to prevent repeated errors
         else:
             # Data changed, reset to base interval
             if self.consecutive_no_changes > 0:
