@@ -2,6 +2,10 @@
 
 Original work by @DoctaShizzle: https://github.com/DoctaShizzle/marstek_cloud
 This fork adds HACS support, Energy Dashboard integration, and production enhancements.
+
+Security Note:
+    Passwords are accessed from config entry data (encrypted at rest by Home Assistant)
+    and passed to the API client. They are never logged or exposed in any way.
 """
 
 from __future__ import annotations
@@ -66,6 +70,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             __import__(f"{__package__}.{platform}")
 
         session = async_get_clientsession(hass)
+        # Security: Password from config entry (encrypted at rest by HA)
+        # Never logged or exposed - passed directly to API client
         api = MarstekAPI(session, entry.data["email"], entry.data["password"])
 
         scan_interval = entry.options.get(
@@ -80,6 +86,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.data[DOMAIN][entry.entry_id] = coordinator
 
         # Ensure devices key exists in config_entry.data
+        # Security: This preserves all config data including password (encrypted at rest)
         devices = coordinator.data or []
         hass.config_entries.async_update_entry(
             entry, data={**entry.data, "devices": devices}

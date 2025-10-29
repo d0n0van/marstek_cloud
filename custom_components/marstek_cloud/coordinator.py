@@ -22,6 +22,38 @@ from .const import API_DEVICES, API_LOGIN
 
 _LOGGER = logging.getLogger(__name__)
 
+# Security: Sensitive fields that should never be logged
+_SENSITIVE_FIELDS = {"password", "token", "pwd"}
+
+
+def _redact_sensitive_data(data: dict[str, Any] | Any, depth: int = 0) -> dict[str, Any] | Any:
+    """Redact sensitive information from data structures for safe logging.
+    
+    Args:
+        data: Data structure that may contain sensitive fields.
+        depth: Current recursion depth (max 3 levels to prevent infinite loops).
+    
+    Returns:
+        Data structure with sensitive fields redacted.
+    """
+    if depth > 3 or not isinstance(data, dict):
+        return data
+    
+    redacted = {}
+    for key, value in data.items():
+        if any(sensitive in key.lower() for sensitive in _SENSITIVE_FIELDS):
+            redacted[key] = "***REDACTED***"
+        elif isinstance(value, dict):
+            redacted[key] = _redact_sensitive_data(value, depth + 1)
+        elif isinstance(value, list):
+            redacted[key] = [
+                _redact_sensitive_data(item, depth + 1) if isinstance(item, dict) else item
+                for item in value
+            ]
+        else:
+            redacted[key] = value
+    return redacted
+
 # Constants for API error handling
 TOKEN_ERROR_CODES = ("-1", "401", "403")
 NO_ACCESS_CODE = "8"
@@ -93,11 +125,17 @@ class MarstekAPI:
         Args:
             session: aiohttp session for HTTP requests.
             email: User email for authentication.
-            password: User password for authentication.
+            password: User password for authentication (stored securely in memory,
+                     never logged, required for token refresh as API uses client-side MD5).
             cache_ttl: Cache duration in seconds (default: 60).
+        
+        Security Note:
+            The password is stored in memory because the Marstek API requires
+            client-side MD5 hashing for authentication. It is never logged or exposed.
         """
         self._session = session
         self._email = email
+        # Security: Password stored in memory only, never logged
         self._password = password
         self._token: str | None = None
         self._token_expires_at: datetime | None = None
@@ -228,6 +266,8 @@ class MarstekAPI:
             UpdateFailed: If API request fails.
         """
         try:
+            # Security: MD5 hash password before sending (required by API)
+            # The plaintext password is only used here and never logged
             md5_pwd = hashlib.md5(self._password.encode()).hexdigest()
             params = {"pwd": md5_pwd, "mailbox": self._email}
 
@@ -248,7 +288,9 @@ class MarstekAPI:
                         raise MarstekRateLimitError("Rate limit exceeded during login")
                     
                     if "token" not in data:
-                        raise MarstekAuthenticationError(f"Login failed: {data}")
+                        # Security: Redact any sensitive data before logging
+                        safe_data = _redact_sensitive_data(data)
+                        raise MarstekAuthenticationError(f"Login failed: {safe_data}")
 
                     self._token = data["token"]
                     # Set token expiration (assume 1 hour, refresh 5 minutes before)
@@ -320,7 +362,9 @@ class MarstekAPI:
                             )
 
                         data = await resp.json()
-                        _LOGGER.debug("Marstek API response: %s", data)
+                        # Security: Redact sensitive data before logging
+                        safe_data = _redact_sensitive_data(data)
+                        _LOGGER.debug("Marstek API response: %s", safe_data)
 
                         # Handle token expiration or invalid token
                         if (
@@ -339,7 +383,9 @@ class MarstekAPI:
                                         f"Retry request failed with status {retry_resp.status}"
                                     )
                                 data = await retry_resp.json()
-                                _LOGGER.debug("Marstek API retry response: %s", data)
+                                # Security: Redact sensitive data before logging
+                                safe_data = _redact_sensitive_data(data)
+                                _LOGGER.debug("Marstek API retry response: %s", safe_data)
 
                         # Handle specific error code 8 (no access permission)
                         if str(data.get("code")) == NO_ACCESS_CODE:

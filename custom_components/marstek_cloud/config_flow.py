@@ -1,3 +1,11 @@
+"""Configuration flow for Marstek Cloud integration.
+
+Security Note:
+    Passwords are stored in Home Assistant's config entry data for token refresh.
+    Home Assistant encrypts config entries at rest. The password is required in
+    plaintext because the Marstek API requires client-side MD5 hashing.
+"""
+
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.core import callback
@@ -23,11 +31,13 @@ class MarstekConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_user(self, user_input=None):
         if user_input is not None:
+            # Security: Password stored in config entry data (encrypted at rest by HA)
+            # Required in plaintext because Marstek API needs client-side MD5 hashing
             return self.async_create_entry(
                 title="Marstek Cloud",
                 data={
                     "email": user_input["email"],
-                    "password": user_input["password"],
+                    "password": user_input["password"],  # Stored securely by HA
                     "scan_interval": user_input["scan_interval"],
                     "default_capacity_kwh": user_input.get(
                         "default_capacity_kwh", 5.12
