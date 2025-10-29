@@ -9,7 +9,7 @@ from aiohttp import ClientSession
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import UpdateFailed
 
-from marstek_cloud.coordinator import (MarstekAPI, MarstekAPIError,
+from custom_components.marstek_cloud.coordinator import (MarstekAPI, MarstekAPIError,
                                        MarstekAuthenticationError,
                                        MarstekCoordinator,
                                        MarstekPermissionError)
@@ -112,7 +112,7 @@ class TestMarstekAPI:
         mock_context.__aexit__ = AsyncMock(return_value=None)
         mock_session.get.return_value = mock_context
 
-        with pytest.raises(MarstekAuthenticationError):
+        with pytest.raises(MarstekPermissionError):
             await api_client.get_devices()
 
 
@@ -158,7 +158,7 @@ class TestMarstekCoordinator:
             side_effect=MarstekAuthenticationError("No access")
         )
 
-        with pytest.raises(UpdateFailed, match="Authentication error"):
+        with pytest.raises(UpdateFailed, match="API error"):
             await coordinator._async_update_data()
 
     @pytest.mark.asyncio

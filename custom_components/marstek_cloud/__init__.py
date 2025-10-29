@@ -1,4 +1,8 @@
-"""Marstek Cloud Battery Home Assistant Integration."""
+"""Marstek Cloud Battery Home Assistant Integration.
+
+Original work by @DoctaShizzle: https://github.com/DoctaShizzle/marstek_cloud
+This fork adds HACS support, Energy Dashboard integration, and production enhancements.
+"""
 
 from __future__ import annotations
 
@@ -10,11 +14,40 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import DEFAULT_SCAN_INTERVAL, DOMAIN
-from .coordinator import MarstekAPI, MarstekCoordinator, SharedRateLimiter
+from .coordinator import MarstekAPI, MarstekCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS: list[str] = ["sensor"]
+
+
+async def async_options_updated(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Handle options update for the integration.
+    
+    Args:
+        hass: The Home Assistant instance.
+        entry: The config entry that was updated.
+    """
+    try:
+        # Get the coordinator
+        coordinator = hass.data[DOMAIN].get(entry.entry_id)
+        if not coordinator:
+            _LOGGER.warning("No coordinator found for entry %s", entry.entry_id)
+            return
+            
+        # Check if scan_interval changed
+        new_scan_interval = entry.options.get("scan_interval")
+        if new_scan_interval and hasattr(coordinator, 'update_scan_interval'):
+            # Validate the new interval
+            if 10 <= new_scan_interval <= 3600:
+                coordinator.update_scan_interval(new_scan_interval)
+                _LOGGER.info("Scan interval updated to %d seconds", new_scan_interval)
+            else:
+                _LOGGER.warning("Invalid scan interval %d, must be between 10 and 3600 seconds", 
+                              new_scan_interval)
+            
+    except Exception as ex:
+        _LOGGER.error("Failed to handle options update: %s", ex)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -33,15 +66,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             __import__(f"{__package__}.{platform}")
 
         session = async_get_clientsession(hass)
-        
-        # Create shared rate limiter for all API instances
-        if DOMAIN not in hass.data:
-            hass.data[DOMAIN] = {}
-        if "rate_limiter" not in hass.data[DOMAIN]:
-            hass.data[DOMAIN]["rate_limiter"] = SharedRateLimiter()
-        
-        rate_limiter = hass.data[DOMAIN]["rate_limiter"]
-        api = MarstekAPI(session, entry.data["email"], entry.data["password"], rate_limiter)
+        api = MarstekAPI(session, entry.data["email"], entry.data["password"])
 
         scan_interval = entry.options.get(
             "scan_interval",
@@ -61,6 +86,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         )
 
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+        
+        # Set up options update listener
+        entry.async_on_unload(
+            entry.add_update_listener(async_options_updated)
+        )
+        
         _LOGGER.info("Marstek Cloud integration setup completed successfully")
         return True
 
@@ -82,6 +113,10 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     try:
         unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
         if unload_ok:
+            # Cleanup coordinator resources
+            coordinator = hass.data[DOMAIN].get(entry.entry_id)
+            if coordinator and hasattr(coordinator, 'close'):
+                await coordinator.close()
             hass.data[DOMAIN].pop(entry.entry_id, None)
             _LOGGER.info("Marstek Cloud integration unloaded successfully")
         return unload_ok

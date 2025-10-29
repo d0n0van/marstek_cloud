@@ -20,7 +20,7 @@ import pytest
 import pytest_asyncio
 from dotenv import load_dotenv
 
-from marstek_cloud.coordinator import MarstekAPI, MarstekCoordinator
+from custom_components.marstek_cloud.coordinator import MarstekAPI, MarstekCoordinator
 
 # Load environment variables from .env file
 load_dotenv()
@@ -205,7 +205,7 @@ if __name__ == "__main__":
     async def main():
         """Run a quick integration test."""
         import aiohttp
-        from marstek_cloud.coordinator import MarstekAPI
+        from custom_components.marstek_cloud.coordinator import MarstekAPI
         
         email = os.getenv("MARSTEK_EMAIL")
         password = os.getenv("MARSTEK_PASSWORD")
