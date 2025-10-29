@@ -89,23 +89,21 @@ The integration includes comprehensive tests to ensure reliability and functiona
 ### Running Tests
 
 ```bash
-# Run unit tests only (default)
-pytest
+# Install development dependencies
+pip install -r requirements-dev.txt
 
-# Run with coverage
-pytest --cov=marstek_cloud
+# Run all tests (unit + integration)
+python run_tests.py
 
-# Run specific test file
-pytest tests/test_coordinator.py
+# Run unit tests only
+python -m pytest tests/test_coordinator.py -v
 
 # Run integration tests (requires real API credentials)
 python run_integration_test.py
 
-# Or run integration tests directly
-pytest tests/test_integration.py -v -s
+# Run with coverage
+pytest --cov=marstek_cloud
 ```
-
-### Integration Testing
 
 To test against the real Marstek Cloud API:
 

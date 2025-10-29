@@ -36,9 +36,9 @@
    ```
 
 #### Advanced Troubleshooting:
-1. **Run Debug Script**:
+1. **Run Integration Tests**:
    ```bash
-   python debug_integration.py
+   python run_integration_test.py
    ```
    This will test your API connection and show detailed error information.
 

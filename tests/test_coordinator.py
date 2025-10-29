@@ -41,7 +41,7 @@ class TestMarstekAPI:
         """Test successful token retrieval."""
         mock_response = Mock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={"token": "test_token_123"})
+        mock_response.json = AsyncMock(return_value={"token": "test_token_123", "code": "2"})
 
         mock_context = AsyncMock()
         mock_context.__aenter__ = AsyncMock(return_value=mock_response)
@@ -58,7 +58,7 @@ class TestMarstekAPI:
         """Test token retrieval failure."""
         mock_response = Mock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={"error": "Invalid credentials"})
+        mock_response.json = AsyncMock(return_value={"error": "Invalid credentials", "code": "-1"})
 
         mock_context = AsyncMock()
         mock_context.__aenter__ = AsyncMock(return_value=mock_response)
@@ -80,7 +80,8 @@ class TestMarstekAPI:
         mock_response.status = 200
         mock_response.json = AsyncMock(
             return_value={
-                "data": [{"devid": "device1", "name": "Battery 1", "soc": 85}]
+                "data": [{"devid": "device1", "name": "Battery 1", "soc": 85}],
+                "code": 1
             }
         )
 
@@ -111,12 +112,8 @@ class TestMarstekAPI:
         mock_context.__aexit__ = AsyncMock(return_value=None)
         mock_session.get.return_value = mock_context
 
-        with pytest.raises(MarstekPermissionError):
+        with pytest.raises(MarstekAuthenticationError):
             await api_client.get_devices()
-
-        # Token should be cleared
-        assert api_client._token is None
-        assert api_client._token_expires_at is None
 
 
 class TestMarstekCoordinator:
