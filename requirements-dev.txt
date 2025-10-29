@@ -4,8 +4,10 @@
 # Include production requirements
 -r requirements.txt
 
-# Home Assistant for testing (only needed in dev environment)
-homeassistant>=2024.3.3
+# Note: Home Assistant dependencies are not included here due to installation issues
+# The integration tests use mocking to avoid requiring the full Home Assistant installation
+# If you need Home Assistant for testing, install it separately:
+# pip install homeassistant --no-deps
 
 # Development and testing dependencies
 pytest>=7.0.0
@@ -28,3 +30,7 @@ pre-commit>=2.20.0
 
 # Environment management
 python-dotenv>=1.0.0
+
+# Additional testing utilities
+aioresponses>=0.7.0
+freezegun>=1.2.0

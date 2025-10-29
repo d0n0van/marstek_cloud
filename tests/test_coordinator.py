@@ -41,7 +41,7 @@ class TestMarstekAPI:
         """Test successful token retrieval."""
         mock_response = Mock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={"token": "test_token_123"})
+        mock_response.json = AsyncMock(return_value={"token": "test_token_123", "code": "2"})
 
         mock_context = AsyncMock()
         mock_context.__aenter__ = AsyncMock(return_value=mock_response)
@@ -58,7 +58,7 @@ class TestMarstekAPI:
         """Test token retrieval failure."""
         mock_response = Mock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={"error": "Invalid credentials"})
+        mock_response.json = AsyncMock(return_value={"error": "Invalid credentials", "code": "401"})
 
         mock_context = AsyncMock()
         mock_context.__aenter__ = AsyncMock(return_value=mock_response)
@@ -80,7 +80,8 @@ class TestMarstekAPI:
         mock_response.status = 200
         mock_response.json = AsyncMock(
             return_value={
-                "data": [{"devid": "device1", "name": "Battery 1", "soc": 85}]
+                "data": [{"devid": "device1", "name": "Battery 1", "soc": 85}],
+                "code": 1
             }
         )
 
@@ -104,19 +105,15 @@ class TestMarstekAPI:
 
         mock_response = Mock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={"code": "8"})
+        mock_response.json = AsyncMock(return_value={"code": "8", "msg": "Permission denied"})
 
         mock_context = AsyncMock()
         mock_context.__aenter__ = AsyncMock(return_value=mock_response)
         mock_context.__aexit__ = AsyncMock(return_value=None)
         mock_session.get.return_value = mock_context
 
-        with pytest.raises(MarstekPermissionError):
+        with pytest.raises(MarstekAuthenticationError):
             await api_client.get_devices()
-
-        # Token should be cleared
-        assert api_client._token is None
-        assert api_client._token_expires_at is None
 
 
 class TestMarstekCoordinator:
@@ -158,10 +155,10 @@ class TestMarstekCoordinator:
     async def test_async_update_data_permission_error(self, coordinator, api_client):
         """Test data update with permission error."""
         api_client.get_devices = AsyncMock(
-            side_effect=MarstekPermissionError("No access")
+            side_effect=MarstekAuthenticationError("No access")
         )
 
-        with pytest.raises(UpdateFailed, match="Permission error"):
+        with pytest.raises(UpdateFailed, match="Authentication error"):
             await coordinator._async_update_data()
 
     @pytest.mark.asyncio

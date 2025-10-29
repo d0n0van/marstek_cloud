@@ -29,10 +29,17 @@ This custom integration connects your Marstek battery system (via the Marstek cl
   - `version` – Firmware version
   - `sn` – Serial number
   - `report_time` – Timestamp of last report
-  - `total_charge` – Total charge per device (kWh).
+  - `total_charge` – Total charge per device (kWh)
+
+- **P1 meter support** (for HME/SMR devices)
+  - `grid` – Grid power (W)
+  - `pv` – PV power (W)
+  - `load` – Load power (W)
+  - `status` – Device status (online/offline)
+  - `is_support` – Support status
 
 - **Cross-device total charge sensor**  
-  - `total_charge_all_devices` – Sum of total charges across all batteries (kWh).
+  - `total_charge_all_devices` – Sum of total charges across all batteries (kWh)
 
 - **Diagnostic sensors**  
   - `last_update` – Time of last successful update
@@ -89,20 +96,17 @@ The integration includes comprehensive tests to ensure reliability and functiona
 ### Running Tests
 
 ```bash
-# Run unit tests only (default)
-pytest
+# Install development dependencies
+pip install -r requirements-dev.txt
 
-# Run with coverage
-pytest --cov=marstek_cloud
+# Run all tests (unit + integration)
+python run_tests.py
 
-# Run specific test file
-pytest tests/test_coordinator.py
+# Run unit tests only
+python -m pytest tests/test_coordinator.py -v
 
 # Run integration tests (requires real API credentials)
 python run_integration_test.py
-
-# Or run integration tests directly
-pytest tests/test_integration.py -v -s
 ```
 
 ### Integration Testing
