@@ -1,7 +1,7 @@
 {
   "domain": "marstek_cloud",
   "name": "Marstek Cloud Battery",
-  "version": "0.6.10",
+  "version": "0.6.11",
   "documentation": "https://github.com/d0n0van/marstek_cloud",
   "issue_tracker": "https://github.com/d0n0van/marstek_cloud/issues",
   "requirements": ["aiohttp>=3.8.0", "voluptuous>=0.12.0"],

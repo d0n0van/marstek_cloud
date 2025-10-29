@@ -508,6 +508,9 @@ class MarstekCoordinator(DataUpdateCoordinator[list[dict[str, Any]]]):
         if hasattr(self.api, '_cache_ttl'):
             self.api._cache_ttl = scan_interval
         
+        _LOGGER.info("MarstekCoordinator initialized with scan_interval=%d seconds, update_interval=%s", 
+                    scan_interval, self.update_interval)
+        
     def update_scan_interval(self, new_interval: int) -> None:
         """Update the scan interval for the coordinator.
         
@@ -530,8 +533,8 @@ class MarstekCoordinator(DataUpdateCoordinator[list[dict[str, Any]]]):
         if hasattr(self.api, '_cache_ttl'):
             self.api._cache_ttl = new_interval
             
-        _LOGGER.info("Scan interval updated to %d seconds (cache TTL: %d seconds)", 
-                    new_interval, self.api._cache_ttl)
+        _LOGGER.info("Scan interval updated to %d seconds (cache TTL: %d seconds, update_interval=%s)", 
+                    new_interval, self.api._cache_ttl, self.update_interval)
         
     async def close(self) -> None:
         """Close the coordinator and cleanup resources."""
@@ -548,6 +551,8 @@ class MarstekCoordinator(DataUpdateCoordinator[list[dict[str, Any]]]):
             UpdateFailed: If data fetch fails.
         """
         try:
+            _LOGGER.debug("_async_update_data called - current update_interval=%s, base_scan_interval=%d", 
+                         self.update_interval, self.base_scan_interval)
             start = time.perf_counter()
             devices = await self.api.get_devices()
             self.last_latency = round((time.perf_counter() - start) * 1000, 1)
@@ -561,6 +566,8 @@ class MarstekCoordinator(DataUpdateCoordinator[list[dict[str, Any]]]):
             
             # Adaptive interval logic
             self._update_adaptive_interval()
+            
+            _LOGGER.debug("After adaptive logic - update_interval=%s", self.update_interval)
             
             return devices
 
@@ -581,7 +588,19 @@ class MarstekCoordinator(DataUpdateCoordinator[list[dict[str, Any]]]):
             raise UpdateFailed(f"Unexpected error: {ex}") from ex
 
     def _update_adaptive_interval(self) -> None:
-        """Update scan interval based on data changes."""
+        """Update scan interval based on data changes.
+        
+        Note: This should only extend intervals, never reduce below base_scan_interval.
+        The coordinator's update_interval is what actually controls update frequency.
+        """
+        # Always ensure we're at least at the base_scan_interval
+        if self.update_interval.total_seconds() < self.base_scan_interval:
+            _LOGGER.warning("Update interval (%s) is below base_scan_interval (%d), correcting...", 
+                          self.update_interval, self.base_scan_interval)
+            self.update_interval = timedelta(seconds=self.base_scan_interval)
+            self.consecutive_no_changes = 0
+            return
+        
         # Check if data has changed by comparing with API's data hash
         current_hash = self.api._get_data_hash(self.api._cached_devices or [])
         

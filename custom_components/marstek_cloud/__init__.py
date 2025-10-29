@@ -92,6 +92,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             "scan_interval",
             entry.data.get("scan_interval", DEFAULT_SCAN_INTERVAL),
         )
+        
+        _LOGGER.info("Setting up coordinator with scan_interval=%d from options=%s, data=%s", 
+                    scan_interval, entry.options.get("scan_interval"), entry.data.get("scan_interval"))
 
         coordinator = MarstekCoordinator(hass, api, scan_interval)
         await coordinator.async_config_entry_first_refresh()
