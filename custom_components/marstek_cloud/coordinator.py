@@ -40,6 +40,11 @@ ADAPTIVE_INTERVAL_MAX = 300  # Maximum interval (5 minutes)
 MAX_CONCURRENT_REQUESTS = 2  # Conservative limit based on testing
 RATE_LIMIT_RETRY_DELAY = 5  # Seconds to wait after rate limit hit
 
+# Server error handling constants
+SERVER_ERROR_RETRY_DELAY = 10  # Seconds to wait after server error
+MAX_SERVER_ERROR_RETRIES = 5  # Maximum retries for server errors
+SERVER_ERROR_BACKOFF_MULTIPLIER = 2  # Exponential backoff multiplier
+
 
 class MarstekAPIError(Exception):
     """Base exception for Marstek API errors."""
@@ -101,6 +106,12 @@ class MarstekAPI:
         self._cache_timestamp: datetime | None = None
         self._last_data_hash: str | None = None
         
+        # Circuit breaker for server errors
+        self._server_error_count = 0
+        self._last_server_error_time: datetime | None = None
+        self._circuit_breaker_threshold = 3  # Open circuit after 3 consecutive errors
+        self._circuit_breaker_timeout = 300  # 5 minutes before trying again
+        
         # Connection pooling and DNS optimization
         self._connector = aiohttp.TCPConnector(
             limit=10,  # Total connection pool size
@@ -108,7 +119,10 @@ class MarstekAPI:
             ttl_dns_cache=300,  # DNS cache for 5 minutes
             use_dns_cache=True,
             keepalive_timeout=30,
-            enable_cleanup_closed=True
+            enable_cleanup_closed=True,
+            # Additional optimizations for better reliability
+            force_close=False,  # Keep connections alive
+            resolver=aiohttp.AsyncResolver(nameservers=['8.8.8.8', '1.1.1.1'])  # Reliable DNS
         )
         
     async def close(self) -> None:
@@ -120,8 +134,17 @@ class MarstekAPI:
         """Get a session with optimized connection settings."""
         return aiohttp.ClientSession(
             connector=self._connector,
-            timeout=aiohttp.ClientTimeout(total=API_TIMEOUT, connect=DNS_TIMEOUT),
-            headers={'User-Agent': 'HomeAssistant-MarstekCloud/0.5.0'}
+            timeout=aiohttp.ClientTimeout(
+                total=API_TIMEOUT, 
+                connect=DNS_TIMEOUT,
+                sock_read=15,  # Socket read timeout
+                sock_connect=DNS_TIMEOUT  # Socket connect timeout
+            ),
+            headers={
+                'User-Agent': 'HomeAssistant-MarstekCloud/0.5.0',
+                'Accept': 'application/json',
+                'Connection': 'keep-alive'
+            }
         )
 
     def _is_token_valid(self) -> bool:
@@ -152,6 +175,30 @@ class MarstekAPI:
             return True
         time_until_expiry = (self._token_expires_at - datetime.now()).total_seconds()
         return time_until_expiry < TOKEN_REFRESH_BUFFER
+
+    def _is_circuit_breaker_open(self) -> bool:
+        """Check if circuit breaker is open due to repeated server errors."""
+        if self._server_error_count < self._circuit_breaker_threshold:
+            return False
+        
+        if self._last_server_error_time is None:
+            return False
+            
+        time_since_error = (datetime.now() - self._last_server_error_time).total_seconds()
+        return time_since_error < self._circuit_breaker_timeout
+
+    def _record_server_error(self) -> None:
+        """Record a server error for circuit breaker logic."""
+        self._server_error_count += 1
+        self._last_server_error_time = datetime.now()
+        _LOGGER.warning("Server error count: %d/%d", self._server_error_count, self._circuit_breaker_threshold)
+
+    def _reset_circuit_breaker(self) -> None:
+        """Reset circuit breaker after successful request."""
+        if self._server_error_count > 0:
+            _LOGGER.info("Resetting circuit breaker after successful request")
+            self._server_error_count = 0
+            self._last_server_error_time = None
 
     async def _get_token(self) -> None:
         """Obtain authentication token from Marstek API.
@@ -203,6 +250,14 @@ class MarstekAPI:
             MarstekPermissionError: If no access permission.
             UpdateFailed: If API request fails.
         """
+        # Check circuit breaker
+        if self._is_circuit_breaker_open():
+            if self._cached_devices:
+                _LOGGER.warning("Circuit breaker open, returning cached data")
+                return self._cached_devices
+            else:
+                raise MarstekServerError("Circuit breaker open - no cached data available")
+        
         # Check if we have valid cached data
         if self._is_cache_valid():
             _LOGGER.debug("Returning cached device data (age: %.1fs)", 
@@ -271,10 +326,12 @@ class MarstekAPI:
                         
                         # Handle server error code 500
                         if str(data.get("code")) == SERVER_ERROR_CODE:
+                            error_msg = data.get("msg", "Unknown server error")
                             _LOGGER.warning(
-                                "Server error (code 500): %s", data.get("msg", "Unknown server error")
+                                "Server error (code 500): %s", error_msg
                             )
-                            raise MarstekServerError(f"Server error: {data.get('msg', 'Unknown error')}")
+                            self._record_server_error()
+                            raise MarstekServerError(f"Server error: {error_msg}")
                         
                         # Handle rate limit error code 5
                         if str(data.get("code")) == RATE_LIMIT_CODE:
@@ -291,6 +348,9 @@ class MarstekAPI:
                         # Cache the data
                         self._cached_devices = devices
                         self._cache_timestamp = datetime.now()
+                        
+                        # Reset circuit breaker on successful request
+                        self._reset_circuit_breaker()
                         
                         # Check if data has changed for adaptive intervals
                         current_hash = self._get_data_hash(devices)
@@ -311,9 +371,13 @@ class MarstekAPI:
                     raise UpdateFailed("Device fetch request timed out") from ex
             except MarstekServerError as ex:
                 if attempt < max_retries:
-                    _LOGGER.warning("Server error (attempt %d/%d), waiting %ds before retry...", 
-                                  attempt + 1, max_retries + 1, 5 + (attempt * 2))
-                    await asyncio.sleep(5 + (attempt * 2))  # Progressive delay: 5s, 7s, 9s
+                    # Exponential backoff with jitter for server errors
+                    delay = min(SERVER_ERROR_RETRY_DELAY * (SERVER_ERROR_BACKOFF_MULTIPLIER ** attempt), 60)
+                    jitter = delay * 0.1  # Add 10% jitter
+                    total_delay = delay + jitter
+                    _LOGGER.warning("Server error (attempt %d/%d), waiting %.1fs before retry...", 
+                                  attempt + 1, max_retries + 1, total_delay)
+                    await asyncio.sleep(total_delay)
                     continue
                 else:
                     _LOGGER.error("Server error after %d attempts: %s", max_retries + 1, ex)
