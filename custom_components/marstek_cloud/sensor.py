@@ -153,8 +153,10 @@ class MarstekDiagnosticSensor(MarstekBaseSensor):
     def native_value(self):
         """Return the diagnostic value."""
         if self.key == "last_update":
-            if self.coordinator.last_update_success:
-                return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            if hasattr(self.coordinator, 'last_update_success') and self.coordinator.last_update_success:
+                # Return the actual last update time from the coordinator
+                if hasattr(self.coordinator, 'last_update_time'):
+                    return self.coordinator.last_update_time
             return None
 
         elif self.key == "api_latency":

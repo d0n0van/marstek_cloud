@@ -31,7 +31,7 @@ API_TIMEOUT = 30
 DNS_TIMEOUT = 10  # DNS resolution timeout
 
 # API optimization constants
-CACHE_TTL = 30  # Cache data for 30 seconds
+DEFAULT_CACHE_TTL = 60  # Default cache duration (should match DEFAULT_SCAN_INTERVAL)
 TOKEN_REFRESH_BUFFER = 300  # Refresh token 5 minutes before expiry
 ADAPTIVE_INTERVAL_MIN = 60  # Minimum interval (1 minute)
 ADAPTIVE_INTERVAL_MAX = 300  # Maximum interval (5 minutes)
@@ -86,7 +86,7 @@ class MarstekAPI:
     """Handle API communication with Marstek Cloud."""
 
     def __init__(
-        self, session: aiohttp.ClientSession, email: str, password: str
+        self, session: aiohttp.ClientSession, email: str, password: str, cache_ttl: int = DEFAULT_CACHE_TTL
     ) -> None:
         """Initialize the Marstek API client.
 
@@ -94,12 +94,14 @@ class MarstekAPI:
             session: aiohttp session for HTTP requests.
             email: User email for authentication.
             password: User password for authentication.
+            cache_ttl: Cache duration in seconds (default: 60).
         """
         self._session = session
         self._email = email
         self._password = password
         self._token: str | None = None
         self._token_expires_at: datetime | None = None
+        self._cache_ttl = cache_ttl
         
         # Caching for API optimization
         self._cached_devices: list[dict[str, Any]] | None = None
@@ -113,27 +115,45 @@ class MarstekAPI:
         self._circuit_breaker_timeout = 300  # 5 minutes before trying again
         
         # Connection pooling and DNS optimization
-        self._connector = aiohttp.TCPConnector(
-            limit=10,  # Total connection pool size
-            limit_per_host=2,  # Max connections per host
-            ttl_dns_cache=300,  # DNS cache for 5 minutes
-            use_dns_cache=True,
-            keepalive_timeout=30,
-            enable_cleanup_closed=True,
-            # Additional optimizations for better reliability
-            force_close=False,  # Keep connections alive
-            resolver=aiohttp.AsyncResolver(nameservers=['8.8.8.8', '1.1.1.1'])  # Reliable DNS
-        )
+        # Delay connector creation until it's actually needed (in an async context)
+        self._connector: aiohttp.TCPConnector | None = None
         
+    def _get_connector(self) -> aiohttp.TCPConnector:
+        """Get or create the TCP connector with optimized settings."""
+        if self._connector is None:
+            # Connection pooling and DNS optimization
+            # Only create resolver if there's a running event loop
+            resolver = None
+            try:
+                loop = asyncio.get_running_loop()
+                resolver = aiohttp.AsyncResolver(nameservers=['8.8.8.8', '1.1.1.1'])  # Reliable DNS
+            except RuntimeError:
+                # No event loop running (fallback to default resolver)
+                pass
+            
+            self._connector = aiohttp.TCPConnector(
+                limit=10,  # Total connection pool size
+                limit_per_host=2,  # Max connections per host
+                ttl_dns_cache=300,  # DNS cache for 5 minutes
+                use_dns_cache=True,
+                keepalive_timeout=30,
+                enable_cleanup_closed=True,
+                # Additional optimizations for better reliability
+                force_close=False,  # Keep connections alive
+                resolver=resolver  # Will be None if no event loop
+            )
+        return self._connector
+    
     async def close(self) -> None:
         """Close the API client and cleanup resources."""
-        if hasattr(self, '_connector'):
+        if self._connector is not None:
             await self._connector.close()
+            self._connector = None
     
     def _get_session(self) -> aiohttp.ClientSession:
         """Get a session with optimized connection settings."""
         return aiohttp.ClientSession(
-            connector=self._connector,
+            connector=self._get_connector(),
             timeout=aiohttp.ClientTimeout(
                 total=API_TIMEOUT, 
                 connect=DNS_TIMEOUT,
@@ -157,7 +177,7 @@ class MarstekAPI:
         """Check if cached data is still valid."""
         if not self._cached_devices or not self._cache_timestamp:
             return False
-        return (datetime.now() - self._cache_timestamp).total_seconds() < CACHE_TTL
+        return (datetime.now() - self._cache_timestamp).total_seconds() < self._cache_ttl
 
     def _get_data_hash(self, data: list[dict[str, Any]]) -> str:
         """Generate a hash of the data to detect changes."""
@@ -221,6 +241,12 @@ class MarstekAPI:
                         )
 
                     data = await resp.json()
+                    
+                    # Check for rate limit error (code '5') in login response
+                    if str(data.get("code")) == RATE_LIMIT_CODE:
+                        _LOGGER.warning("Rate limit exceeded during login (code 5)")
+                        raise MarstekRateLimitError("Rate limit exceeded during login")
+                    
                     if "token" not in data:
                         raise MarstekAuthenticationError(f"Login failed: {data}")
 
@@ -430,6 +456,11 @@ class MarstekCoordinator(DataUpdateCoordinator[list[dict[str, Any]]]):
         self.last_latency: float | None = None
         self.base_scan_interval = scan_interval
         self.consecutive_no_changes = 0
+        self.last_update_time: str | None = None  # Track last successful update time
+        
+        # Set cache TTL to match scan interval
+        if hasattr(self.api, '_cache_ttl'):
+            self.api._cache_ttl = scan_interval
         
     def update_scan_interval(self, new_interval: int) -> None:
         """Update the scan interval for the coordinator.
@@ -445,7 +476,13 @@ class MarstekCoordinator(DataUpdateCoordinator[list[dict[str, Any]]]):
             
         self.base_scan_interval = new_interval
         self.update_interval = timedelta(seconds=new_interval)
-        _LOGGER.info("Scan interval updated to %d seconds", new_interval)
+        
+        # Update cache TTL to match scan interval
+        if hasattr(self.api, '_cache_ttl'):
+            self.api._cache_ttl = new_interval
+            
+        _LOGGER.info("Scan interval updated to %d seconds (cache TTL: %d seconds)", 
+                    new_interval, self.api._cache_ttl)
         
     async def close(self) -> None:
         """Close the coordinator and cleanup resources."""
@@ -469,6 +506,9 @@ class MarstekCoordinator(DataUpdateCoordinator[list[dict[str, Any]]]):
             _LOGGER.debug(
                 "Fetched %d devices in %.1f ms", len(devices), self.last_latency
             )
+            
+            # Update last update time
+            self.last_update_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             
             # Adaptive interval logic
             self._update_adaptive_interval()

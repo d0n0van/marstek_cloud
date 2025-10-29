@@ -73,44 +73,85 @@ Enter your Marstek cloud email, password, and desired scan interval during setup
 
 ---
 
-## ⚙ Configuration
+## ⚙️ Configuration Options
 
-- **Scan interval** can be set during initial setup and changed later via the integration’s **Configure** option.
-- **Default battery capacity** (in kWh) can be set for each battery during setup or via the **Options** menu.
-- Default capacity is 5.12 kWh.
-- Minimum scan interval is 10 seconds, maximum is 3600 seconds.
+- **Scan Interval**: Set during initial setup and changeable later via the integration's **Configure** option
+  - Minimum: 10 seconds
+  - Maximum: 3600 seconds (1 hour)
+  - Default: 60 seconds
+  
+- **Default Battery Capacity**: Set for each battery during setup or via the **Options** menu
+  - Default: 5.12 kWh
+  - Configurable per device
+
+- **Per-Device Capacity**: Edit individual battery capacities via the **Options** menu after setup
 
 ---
 
-## 🧪 Testing
+## 🧪 Development & Testing
 
-The integration includes comprehensive tests to ensure reliability and functionality.
+This project uses **Conda** for environment management and includes comprehensive tests to ensure reliability and functionality.
+
+### Development Environment Setup
+
+#### Quick Start with Conda
+
+We provide an automated setup script that handles everything for you:
+
+```bash
+# Activate the development environment (creates it if needed)
+source activate_env.sh
+
+# The script will:
+# - Automatically detect and set up conda
+# - Create the 'marstek_cloud' conda environment (if needed)
+# - Install all required dependencies
+# - Show environment information
+```
+
+#### Manual Setup
+
+If you prefer manual setup:
+
+```bash
+# Create conda environment
+conda create -n marstek_cloud python=3.11 -y
+conda activate marstek_cloud
+
+# Install dependencies
+pip install -r requirements.txt
+pip install -r requirements-dev.txt
+```
 
 ### Running Tests
 
 ```bash
-# Install development dependencies
-pip install -r requirements-dev.txt
+# Activate environment first (if not already active)
+conda activate marstek_cloud
 
-# Run all tests (unit + integration)
+# Run all unit tests (fast, no API calls)
 python run_tests.py
 
-# Run unit tests only
+# Run unit tests only (with pytest directly)
 python -m pytest tests/test_coordinator.py -v
 
 # Run integration tests (requires real API credentials)
 python run_integration_test.py
 
-# Run with coverage
-pytest --cov=marstek_cloud
+# Run all tests with coverage
+pytest --cov=marstek_cloud --cov-report=html
 ```
+
+#### Testing Against Real API
 
 To test against the real Marstek Cloud API:
 
 1. Create a `.env` file with your credentials:
    ```bash
    cp env.example .env
-   # Edit .env with your real credentials
+   # Edit .env with your real credentials:
+   # MARSTEK_EMAIL=your_email@example.com
+   # MARSTEK_PASSWORD=your_password
    ```
 
 2. Run integration tests:
@@ -123,6 +164,23 @@ The integration tests will:
 - Fetch actual device data
 - Test performance and error handling
 - Validate data structure from real API
+- Test connection robustness and rate limiting
+
+### Development Workflow
+
+```bash
+# Format code
+black .
+
+# Lint code
+flake8 .
+
+# Type checking
+mypy .
+
+# Run pre-commit hooks
+pre-commit run --all-files
+```
 
 ---
 
@@ -270,6 +328,16 @@ This fork builds upon the original work with the following additions:
 - **API Optimizations**: Smart caching, adaptive intervals, and reduced API calls
 - **Production Readiness**: Comprehensive testing, error handling, and documentation
 - **Code Quality**: Type hints, linting, pre-commit hooks, and CI/CD setup
+- **Conda Integration**: Automated development environment setup with conda
+- **Comprehensive Test Suite**: Unit and integration tests with proper mocking
+
+### Development Tools
+This project is developed using modern AI-assisted development tools:
+- **[Cursor AI](https://cursor.sh/)**: Heavily used for AI-assisted code generation, refactoring, and debugging
+- **Conda**: For reliable environment and dependency management
+- **Pytest**: For comprehensive testing framework
+- **Black & Flake8**: For code formatting and linting
+- **mypy**: For static type checking
 
 ### License
 This project maintains the same license as the original repository. Please refer to the original repository for licensing information.

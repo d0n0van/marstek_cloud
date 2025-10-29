@@ -98,12 +98,13 @@ if __name__ == "__main__":
     import subprocess
     import pytest
     
-    # Run the tests
+    # Run only unit tests (exclude integration tests)
     exit_code = pytest.main([
-        'tests/',
+        'tests/test_coordinator.py',
         '-v',
         '--tb=short',
-        '--no-cov'  # Disable coverage for now
+        '--no-cov',  # Disable coverage for now
+        '-m', 'not integration'  # Exclude integration tests
     ])
     
     sys.exit(exit_code)

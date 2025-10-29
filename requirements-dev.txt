@@ -4,27 +4,36 @@
 # Include production requirements
 -r requirements.txt
 
-# Home Assistant for testing (only needed in dev environment)
-homeassistant>=2024.3.3
+# Home Assistant for testing (optional, only needed if running full integration tests)
+# Note: Tests use mocks to avoid requiring full Home Assistant installation
+# homeassistant>=2024.3.3
 
-# Development and testing dependencies
+# Core testing dependencies (required)
 pytest>=7.0.0
 pytest-asyncio>=0.21.0
 pytest-cov>=4.0.0
 pytest-mock>=3.10.0
 
-# Code quality tools
+# Environment management for integration tests
+python-dotenv>=1.0.0
+
+# Optional: Home Assistant dependencies for full integration testing
+# These are only needed if you want to test against real Home Assistant modules
+# Uncomment if needed:
+# aiodns>=3.5.0
+# atomicwrites-homeassistant>=1.4.0
+# orjson>=3.11.0
+# lru-dict>=1.3.0
+
+# Code quality tools (optional)
 black>=22.0.0
 flake8>=5.0.0
 isort>=5.10.0
 mypy>=1.0.0
 
-# Documentation
+# Documentation (optional)
 sphinx>=5.0.0
 sphinx-rtd-theme>=1.0.0
 
-# Pre-commit hooks
+# Pre-commit hooks (optional)
 pre-commit>=2.20.0
-
-# Environment management
-python-dotenv>=1.0.0
