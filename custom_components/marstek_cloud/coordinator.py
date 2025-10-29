@@ -523,6 +523,9 @@ class MarstekCoordinator(DataUpdateCoordinator[list[dict[str, Any]]]):
         self.base_scan_interval = new_interval
         self.update_interval = timedelta(seconds=new_interval)
         
+        # Reset adaptive interval state so user's setting takes immediate effect
+        self.consecutive_no_changes = 0
+        
         # Update cache TTL to match scan interval
         if hasattr(self.api, '_cache_ttl'):
             self.api._cache_ttl = new_interval
@@ -623,13 +626,13 @@ class MarstekCoordinator(DataUpdateCoordinator[list[dict[str, Any]]]):
                         _LOGGER.debug("Adaptive interval: %d seconds (no changes: %d)", 
                                     int(new_interval), self.consecutive_no_changes)
                 except (OverflowError, ValueError, OSError) as ex:
-                    _LOGGER.warning("Failed to calculate adaptive interval: %s, using max", ex)
-                    self.update_interval = timedelta(seconds=ADAPTIVE_INTERVAL_MAX)
+                    _LOGGER.warning("Failed to calculate adaptive interval: %s, using base interval", ex)
+                    self.update_interval = timedelta(seconds=self.base_scan_interval)
                     self.consecutive_no_changes = max_consecutive  # Reset to prevent repeated errors
         else:
-            # Data changed, reset to base interval
-            if self.consecutive_no_changes > 0:
-                self.consecutive_no_changes = 0
+            # Data changed, ensure we're using base_scan_interval (user's configured value)
+            if self.update_interval.total_seconds() != self.base_scan_interval:
                 self.update_interval = timedelta(seconds=self.base_scan_interval)
-                _LOGGER.debug("Data changed, reset to base interval: %d seconds", 
+                self.consecutive_no_changes = 0
+                _LOGGER.debug("Data changed, using base interval: %d seconds", 
                             self.base_scan_interval)

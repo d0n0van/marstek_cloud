@@ -63,49 +63,94 @@ class MarstekOptionsFlow(config_entries.OptionsFlow):
     async def async_step_init(self, user_input=None):
         """Manage the options for the integration."""
         if user_input is not None:
-            # Update the config entry data with the new scan_interval
+            # Update config entry data with any changes to email, password, or scan_interval
+            new_data = {**self._config_entry.data}
+            
+            # Handle credentials and scan_interval (stored in data)
+            if "email" in user_input:
+                new_data["email"] = user_input["email"]
+            if "password" in user_input:
+                new_data["password"] = user_input["password"]
             if "scan_interval" in user_input:
-                # Update the main data with the new scan_interval
-                new_data = {**self._config_entry.data, "scan_interval": user_input["scan_interval"]}
+                new_data["scan_interval"] = user_input["scan_interval"]
+            
+            # Update the config entry data if there were changes
+            if new_data != self._config_entry.data:
                 self.hass.config_entries.async_update_entry(
                     self._config_entry, data=new_data
                 )
-                # Remove scan_interval from options since it's now in data
-                user_input = {k: v for k, v in user_input.items() if k != "scan_interval"}
             
+            # Remove data fields from user_input, keep only options
+            for key in ["email", "password", "scan_interval"]:
+                user_input.pop(key, None)
+            
+            # Save remaining options (device capacities)
             return self.async_create_entry(title="", data=user_input)
 
-        # Generate a schema for editing capacity_kwh for each battery with descriptions
+        # Generate a schema for editing options
         options = self._config_entry.options
+        data = self._config_entry.data
         data_schema = {}
         
+        # Add email field
+        current_email = data.get("email", "")
+        data_schema[
+            vol.Optional(
+                "email",
+                default=current_email,
+                description={
+                    "suggested_value": current_email,
+                    "description": "Marstek cloud account email address",
+                },
+            )
+        ] = str
+        
+        # Add password field
+        current_password = data.get("password", "")
+        data_schema[
+            vol.Optional(
+                "password",
+                default=current_password,
+                description={
+                    "suggested_value": current_password,
+                    "description": "Marstek cloud account password",
+                },
+            )
+        ] = str
+        
         # Add scan_interval option
+        current_scan_interval = options.get("scan_interval", data.get("scan_interval", DEFAULT_SCAN_INTERVAL))
         data_schema[
             vol.Optional(
                 "scan_interval",
-                default=options.get("scan_interval", self._config_entry.data.get("scan_interval", DEFAULT_SCAN_INTERVAL)),
+                default=current_scan_interval,
                 description={
-                    "suggested_value": DEFAULT_SCAN_INTERVAL,
+                    "suggested_value": current_scan_interval,
                     "description": "Update interval for fetching data from Marstek Cloud API (10-3600 seconds)",
                 },
             )
         ] = vol.All(vol.Coerce(int), vol.Range(min=10, max=3600))
         
         # Handle missing devices key gracefully
-        devices = self._config_entry.data.get("devices", [])
+        devices = data.get("devices", [])
         if not devices:
             return self.async_abort(reason="no_devices_found")
 
         for device in devices:
             devid = device["devid"]
             name = device["name"]
+            # Get current capacity from options or device data or default
+            current_capacity = options.get(
+                f"{devid}_capacity_kwh",
+                device.get("capacity_kwh", DEFAULT_CAPACITY_KWH)
+            )
             description = f"Set the capacity (in kWh) for {name}"  # Add description for each option
             data_schema[
                 vol.Optional(
                     f"{devid}_capacity_kwh",
-                    default=options.get(f"{devid}_capacity_kwh", DEFAULT_CAPACITY_KWH),
+                    default=current_capacity,
                     description={
-                        "suggested_value": DEFAULT_CAPACITY_KWH,
+                        "suggested_value": current_capacity,
                         "description": description,
                     },
                 )

@@ -39,8 +39,22 @@ async def async_options_updated(hass: HomeAssistant, entry: ConfigEntry) -> None
             _LOGGER.warning("No coordinator found for entry %s", entry.entry_id)
             return
             
-        # Check if scan_interval changed
-        new_scan_interval = entry.options.get("scan_interval")
+        # Check if email or password changed - if so, reload the integration
+        # since the API client needs new credentials
+        if hasattr(coordinator, 'api'):
+            current_email = coordinator.api._email if hasattr(coordinator.api, '_email') else None
+            current_password = coordinator.api._password if hasattr(coordinator.api, '_password') else None
+            
+            new_email = entry.data.get("email")
+            new_password = entry.data.get("password")
+            
+            if (current_email != new_email or current_password != new_password):
+                _LOGGER.info("Credentials changed, reloading integration...")
+                await hass.config_entries.async_reload(entry.entry_id)
+                return
+            
+        # Check if scan_interval changed (check both options and data)
+        new_scan_interval = entry.options.get("scan_interval") or entry.data.get("scan_interval")
         if new_scan_interval and hasattr(coordinator, 'update_scan_interval'):
             # Validate the new interval
             if 10 <= new_scan_interval <= 3600:
